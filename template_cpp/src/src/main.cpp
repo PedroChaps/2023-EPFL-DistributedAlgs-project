@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
     }
     std::cout << "Exiting...\n";
     exit(1);
-  }
+}
   else {
     std::cout << "I am a sender!\n\n";
     std::string ip = "localhost";

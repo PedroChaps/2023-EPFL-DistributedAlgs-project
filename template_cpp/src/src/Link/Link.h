@@ -74,7 +74,7 @@ public:
   /**
    * Sends a message to the receiver Process.
    */
-  void send(std::string message);
+  virtual void send(std::string message);
 
   /**
    * Receives a message from the sender Process.
