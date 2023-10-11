@@ -70,8 +70,8 @@ public:
    *
    * TODO: update docs
    */
-  Link(int ownerId, int receiverId, int type, const std::string& receiverIp, std::string& receiverPort);
-  Link(int ownerId, int receiverId, int type, std::string& ownPort);
+  Link(int type, const std::string& receiverIp, std::string& receiverPort);
+  Link(int type, std::string& ownPort);
 
   /**
    * Sends a message to the receiver Process.

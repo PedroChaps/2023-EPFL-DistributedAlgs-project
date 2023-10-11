@@ -25,7 +25,6 @@ void debug(T msg) {
 
 void PerfectLink::send(std::string message) {
 
-  // TODO: wait for ACK of send for RETRANSMISSION_TIMEOUT milliseconds
   for (int tries = 0; tries < MAX_RETRANSMISSIONS; tries++) {
 
     debug("[PerfectLink] Try number " + std::to_string(tries+1) + " to send message: " + message);
@@ -52,7 +51,7 @@ void PerfectLink::send(std::string message) {
 
     if (ready > 0) {
       debug("[PerfectLink] Received a message...");
-      char ackBuffer[ACK_SIZE+1];
+      char ackBuffer[ACK_SIZE+1] = { 0 };
       recvfrom(sockFd, ackBuffer, ACK_SIZE, 0, Link::getRes()->ai_addr,
                reinterpret_cast<socklen_t *>(Link::getRes()->ai_addrlen));
 
@@ -60,13 +59,11 @@ void PerfectLink::send(std::string message) {
       // Check if the received message is an ACK
       if (strcmp(ackBuffer, ACK_MSG) == 0) {
         debug("[PerfectLink] it was an ACK!");
-        std::cout << "ACK received. Message successfully sent." << std::endl;
-        close(sockFd);
         return;
       }
     } else {
       // Timeout, retransmit the message
-      std::cout << "Timeout, retransmitting message..." << std::endl;
+      debug("[PerfectLink] Timeout, retransmitting message...");
     }
   }
 }
@@ -84,18 +81,14 @@ std::string PerfectLink::receive() {
 
   // Since the client address was stored in the `otherAddr` variable, we can use it to send the ACK
 
-  // Create a temporary copy of sockaddr_in as sockaddr
+  // Create a temporary copy of sockaddr_in as sockaddr because of the sendto() type of arguments
   struct sockaddr addr;
   memcpy(&addr, &Link::getOtherAddr(), sizeof(struct sockaddr_in));
 
-  // Call sendto with the temporary sockaddr and Link::getAddrLen()
-
   debug("[PerfectLink] Sending ACK...");
-  sendto(Link::getUdpSocket(), ACK_MSG, ACK_SIZE, 0, &addr, sizeof(struct sockaddr_in));
 
-/*  sendto(Link::getUdpSocket(), ackMessage, strlen(ackMessage), 0, Link::getOtherAddr(), Link::getAddrLen());*/
-  std::cout << "ACK sent to client" << std::endl;
-  debug("\n\n");
+  sendto(Link::getUdpSocket(), ACK_MSG, ACK_SIZE, 0, &addr, sizeof(struct sockaddr_in));
+  debug("[PerfectLink] ACK sent to client!\n");
 
   return receivedData;
 }

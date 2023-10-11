@@ -60,10 +60,7 @@ void Link::createSenderLink(int fd, const std::string &receiverIp, const std::st
 
 
 // Constructor for a sender Link
-Link::Link(int ownerId, int receiverId, int type, const std::string& receiverIp, std::string& receiverPort) {
-
-  this->ownerId = ownerId;
-  this->receiverId = receiverId;
+Link::Link(int type, const std::string& receiverIp, std::string& receiverPort) {
 
   // Create the socket
   // SOCK_DGRAM: for UDP (if using TCP, use SOCK_STREAM)
@@ -84,10 +81,7 @@ Link::Link(int ownerId, int receiverId, int type, const std::string& receiverIp,
 }
 
 // Constructor for a receiver Link. Doesn't need a target IP and Port
-Link::Link(int ownerId, int receiverId, int type, std::string& ownPort) {
-
-    this->ownerId = ownerId;
-    this->receiverId = receiverId;
+Link::Link(int type, std::string& ownPort) {
 
     // Create the socket
     // SOCK_DGRAM: for UDP (if using TCP, use SOCK_STREAM)
@@ -119,7 +113,7 @@ void Link::send(std::string message) {
 }
 
 std::string Link::receive() {
-  char buffer[BUFFER_SIZE]; // Adjust the buffer size as needed
+  char buffer[BUFFER_SIZE];
 
   ssize_t n = recvfrom(this->udpSocketFd, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&otherAddr), &addrLen);
   if (n < 0) {
@@ -131,6 +125,9 @@ std::string Link::receive() {
   std::string receivedData(buffer, static_cast<size_t>(n));
 
   debug("[Link] Received message: " + receivedData);
+
+  // Reset the buffer
+  memset(buffer, 0, sizeof(buffer));
 
   return receivedData;
 }

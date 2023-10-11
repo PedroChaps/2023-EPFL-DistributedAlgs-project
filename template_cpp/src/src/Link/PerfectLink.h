@@ -8,8 +8,8 @@
 #include "Link.h"
 #include <vector>
 
-#define MAX_RETRANSMISSIONS 50
-#define RETRANSMISSION_TIMEOUT 1000
+#define MAX_RETRANSMISSIONS 9999999
+#define RETRANSMISSION_TIMEOUT 100
 #define ACK_MSG "ACK"
 #define ACK_SIZE 3
 
@@ -23,8 +23,8 @@ public:
   void send(std::string message) override;
   std::string receive() override;
 
-  PerfectLink(int ownerId, int receiverId, int type, const std::string& receiverIp, std::string& receiverPort) : Link(ownerId, receiverId, type, receiverIp, receiverPort){}
-  PerfectLink(int ownerId, int receiverId, int type, std::string& ownPort) : Link(ownerId, receiverId, type, ownPort){}
+  PerfectLink(int type, const std::string& receiverIp, std::string& receiverPort) : Link(type, receiverIp, receiverPort){}
+  PerfectLink(int type, std::string& ownPort) : Link(type, ownPort){}
 };
 
 

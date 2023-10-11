@@ -5,8 +5,10 @@
 #include "parser.hpp"
 #include "hello.h"
 #include <signal.h>
-#include "Process/Process.h"
+#include "Process/Receiver.h"
+#include "Process/Sender.h"
 #include "Link/PerfectLink.h"
+
 
 #define DEBUG 1
 template <class T>
@@ -121,6 +123,7 @@ IpAndPort parseHostsFileById(std::vector<Parser::Host> hosts, unsigned long id) 
 
 }
 
+
 int main(int argc, char **argv) {
 
   // TODO: idk what this does, confirm
@@ -158,26 +161,14 @@ int main(int argc, char **argv) {
   if (configValues.i == id) {
     std::cout << "I am a receiver!\n\n";
 
-    PerfectLink link1_receiver(0, 1, RECEIVER, receiverPort);
-
-    // TODO: move this stuff to the Receiver class
-    std::cout << "Waiting message...\n";
-    while (1) {
-      std::string received = link1_receiver.receive();
-      std::cout << "Received: " << received << "\n";
-    }
-    std::cout << "Exiting...\n";
-    exit(1);
+    Receiver receiver(receiverPort, outputPath);
+    receiver.receiveBroadcasts();
   }
   else {
     std::cout << "I am a sender!\n\n";
 
-    PerfectLink link2_sender(0, 1, SENDER, receiverIp, receiverPort);
-    std::string message = "Hello World!";
-    std::cout << "Sending a Hello World!\n";
-    link2_sender.send(message);
-    std::cout << "Exiting...\n";
-    exit(1);
+    Sender sender(receiverIp, receiverPort, outputPath, static_cast<int>(id), static_cast<int>(configValues.m));
+    sender.sendBroadcasts();
   }
 
   std::cout << "Broadcasting and delivering messages...\n\n";
