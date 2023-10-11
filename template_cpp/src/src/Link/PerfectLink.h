@@ -8,24 +8,25 @@
 #include "Link.h"
 #include <vector>
 
-#define MAX_RETRANSMISSIONS 5
+#define MAX_RETRANSMISSIONS 50
 #define RETRANSMISSION_TIMEOUT 1000
-
+#define ACK_MSG "ACK"
+#define ACK_SIZE 3
 
 /**
- * Basically a Link, but the sending and receiving of messages is implemented as TCP.
+ * Basically a Link, but the sending and receiving of messages is implemented as Perfect Link.
  */
 class PerfectLink : public Link {
 
 public:
 
   void send(std::string message) override;
+  std::string receive() override;
 
-  /**
-   * Additional send() version that accepts a vector of messages and sends them in burst, until every message is acknowledged to have been received.
-   */
-   void send(std::vector<std::string> messages);
+  PerfectLink(int ownerId, int receiverId, int type, const std::string& receiverIp, std::string& receiverPort) : Link(ownerId, receiverId, type, receiverIp, receiverPort){}
+  PerfectLink(int ownerId, int receiverId, int type, std::string& ownPort) : Link(ownerId, receiverId, type, ownPort){}
 };
 
 
 #endif //DA_PROJECT_PERFECTLINK_H
+

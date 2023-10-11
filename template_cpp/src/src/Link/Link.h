@@ -12,7 +12,7 @@
 #define RECEIVER 0
 #define SENDER 1
 
-#define BUFFER_LEN 1024
+#define BUFFER_SIZE 1024
 
 /**
  * Representation of a Link that will enable the connection of two Processes, either to send or to receive messages.
@@ -36,7 +36,9 @@ class Link {
   int ownerId;
 
   std::string ownerAddress;
-  std::string receiverAddress;
+
+  struct sockaddr_in otherAddr;
+  socklen_t addrLen = sizeof(otherAddr);
 
   /**
    * (If sending) The id of the receiver Process.
@@ -79,7 +81,7 @@ public:
   /**
    * Receives a message from the sender Process.
    */
-  std::string receive();
+  virtual std::string receive();
 
   /**
    * Setters and Getters
@@ -92,6 +94,10 @@ public:
   void setUdpSocket(int socket);
   const sockaddr_in &getOwnerAddress() const;
   void setOwnerAddress(const sockaddr_in &ownerAddress);
+  struct addrinfo *getRes();
+  struct sockaddr_in& getOtherAddr();
+  socklen_t getAddrLen();
+
 //  const sockaddr_in &getSenderAddress() const;
 //  int setSenderAddress(const sockaddr_in &senderAddress);
 

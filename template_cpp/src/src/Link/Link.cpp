@@ -119,11 +119,9 @@ void Link::send(std::string message) {
 }
 
 std::string Link::receive() {
-  char buffer[BUFFER_LEN]; // Adjust the buffer size as needed
-  struct sockaddr_in addr;
-  socklen_t addrlen = sizeof(addr);
+  char buffer[BUFFER_SIZE]; // Adjust the buffer size as needed
 
-  ssize_t n = recvfrom(this->udpSocketFd, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addrlen);
+  ssize_t n = recvfrom(this->udpSocketFd, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&otherAddr), &addrLen);
   if (n < 0) {
     perror("[Link] recvfrom() call failed");
     exit(1);
@@ -159,6 +157,18 @@ int Link::getUdpSocket() const {
 
 void Link::setUdpSocket(int socket) {
   this->udpSocketFd = socket;
+}
+
+struct addrinfo *Link::getRes() {
+  return this->res;
+}
+
+struct sockaddr_in& Link::getOtherAddr() {
+  return this->otherAddr;
+}
+
+socklen_t Link::getAddrLen() {
+  return this->addrLen;
 }
 
 //const sockaddr_in &Link::getOwnerAddress() const {
