@@ -12,6 +12,9 @@
 #define RETRANSMISSION_TIMEOUT 100
 #define ACK_MSG "ACK"
 #define ACK_SIZE 3
+
+#define N_THREADS 7
+
 #include <set>
 
 /**
@@ -28,6 +31,8 @@ public:
 
   PerfectLink(int type, const std::string& receiverIp, std::string& receiverPort) : Link(type, receiverIp, receiverPort){}
   PerfectLink(int type, std::string& ownPort) : Link(type, ownPort){}
+
+  virtual ~PerfectLink() = default;
 };
 
 

@@ -9,9 +9,12 @@
 #include <sstream>
 #include "../Link/PerfectLink.h"
 
+void sendMessageThread(int threadId, std::basic_stringstream<char> *logsBufferPtr, PerfectLink link);
+
 class Sender {
 
-  PerfectLink link;
+  // PerfectLink link;
+  std::vector<PerfectLink> links;
 
   std::string ipAddress;
   std::string port;
@@ -27,6 +30,7 @@ class Sender {
 public:
 
   Sender(std::string ip, std::string port, std::string logsPath, std::stringstream *logsBuffer, int m, int processId);
+  // void sendMessageThread(int threadId);
   void sendBroadcasts();
   // Saves whatever is in `logsBuffer` to the file pointed by `logsPath`
   void saveLogs();
