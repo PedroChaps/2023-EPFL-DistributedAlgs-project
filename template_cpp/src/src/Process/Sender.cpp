@@ -10,6 +10,7 @@
 #include <mutex>
 #include <queue>
 #include <condition_variable>
+#include <atomic>
 
 #define DEBUG 1
 template <class T>
@@ -33,6 +34,7 @@ Sender::Sender(std::string ipAddress, std::string port, std::string logsPath, st
 std::queue<std::string> messageQueue;
 std::mutex mtx;
 std::condition_variable cv;
+std::atomic<bool> hasMessages(true);
 
 void sendMessageThread(int threadId, std::basic_stringstream<char> *logsBufferPtr, PerfectLink link) {
 
@@ -43,7 +45,7 @@ void sendMessageThread(int threadId, std::basic_stringstream<char> *logsBufferPt
       std::unique_lock<std::mutex> lock(mtx);
 
       // Wait until there's a message in the queue or all messages have been sent
-      cv.wait(lock, [] { return !messageQueue.empty(); });
+      cv.wait(lock, [] { return !messageQueue.empty() || !hasMessages; });
 
       if (messageQueue.empty()) {
         return;
@@ -90,7 +92,10 @@ void Sender::sendBroadcasts() {
     }
     cv.notify_one(); // Notify a waiting thread that there's a message to process
   }
-  
+
+  hasMessages = false;
+  cv.notify_all();
+
   // Wait for all threads to finish
   for (std::thread& t : threads) {
     t.join();
