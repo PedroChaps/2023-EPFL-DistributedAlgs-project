@@ -6,6 +6,7 @@
 #define DA_PROJECT_RECEIVER_H
 
 #include <string>
+#include <sstream>
 #include "../Link/PerfectLink.h"
 
 class Receiver {
@@ -15,10 +16,11 @@ class Receiver {
   std::string port;
 
   std::string logsPath;
+  std::stringstream *logsBufferPtr;
 
 public:
 
-  Receiver(std::string port, std::string logsPath);
+  Receiver(std::string port, std::string logsPath, std::stringstream *logsBuffer);
   void receiveBroadcasts();
 };
 

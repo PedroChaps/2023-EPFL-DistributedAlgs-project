@@ -28,6 +28,10 @@ struct IpAndPort {
   std::string port;
 };
 
+// Global variables are necessary for writting in the logs in case of a signal
+std::stringstream logsBuffer;
+std::string logsPath;
+
 ConfigValues readConfigFile(std::string& configPath);
 IpAndPort parseHostsFileById(std::vector<Parser::Host> hosts, unsigned long id);
 
@@ -36,11 +40,20 @@ static void stop(int) {
   signal(SIGTERM, SIG_DFL);
   signal(SIGINT, SIG_DFL);
 
+  std::cout << "I'm ded.\n";
+
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
 
   // write/flush output file if necessary
   std::cout << "Writing output.\n";
+  std::ofstream logFile;
+  logFile.open(logsPath, std::ios_base::app);
+  logFile << logsBuffer.str();
+  logFile.close();
+
+  // Clears the buffer
+  logsBuffer.str("");
 
   // exit directly from signal handler
   exit(0);
@@ -129,7 +142,9 @@ int main(int argc, char **argv) {
   // TODO: idk what this does, confirm
   signal(SIGTERM, stop);
   signal(SIGINT, stop);
+  logsBuffer.str("");
 
+  // TODO: check what this is
   // `true` means that a config file is required.
   // Call with `false` if no config file is necessary.
   bool requireConfig = true;
@@ -142,7 +157,7 @@ int main(int argc, char **argv) {
   std::cout << "Doing some initialization...\n\n";
   auto id = parser.id();
   auto hosts = parser.hosts();
-  std::string outputPath = parser.outputPath();
+  logsPath = parser.outputPath();
   std::string configPath = parser.configPath();
 
   std::cout << "Reading configPath and determining type...\n\n";
@@ -161,13 +176,13 @@ int main(int argc, char **argv) {
   if (configValues.i == id) {
     std::cout << "I am a receiver!\n\n";
 
-    Receiver receiver(receiverPort, outputPath);
+    Receiver receiver(receiverPort, logsPath, &logsBuffer);
     receiver.receiveBroadcasts();
   }
   else {
     std::cout << "I am a sender!\n\n";
 
-    Sender sender(receiverIp, receiverPort, outputPath, static_cast<int>(id), static_cast<int>(configValues.m));
+    Sender sender(receiverIp, receiverPort, logsPath, &logsBuffer, static_cast<int>(id), static_cast<int>(configValues.m));
     sender.sendBroadcasts();
   }
 

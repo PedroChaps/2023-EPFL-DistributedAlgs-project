@@ -73,8 +73,8 @@ std::string PerfectLink::receive() {
 
   // Receive the message
   auto receivedData = Link::receive();
-
   debug("[PerfectLink] Received message: " + receivedData);
+
 
   // TODO: make this concurrent by spawning a thread that ACKs continues with the interaction with the client i.e. that sends the ACK
   // TODO: Need to save the address of the client that sent the message in case it is overwritten later
@@ -89,6 +89,13 @@ std::string PerfectLink::receive() {
 
   sendto(Link::getUdpSocket(), ACK_MSG, ACK_SIZE, 0, &addr, sizeof(struct sockaddr_in));
   debug("[PerfectLink] ACK sent to client!\n");
+
+  // Checks if the message was already received
+  if (receivedMessages.find(receivedData) != receivedMessages.end()) {
+    debug("[PerfectLink] Message already received, ignoring...");
+    return "";
+  }
+  receivedMessages.insert(receivedData);
 
   return receivedData;
 }

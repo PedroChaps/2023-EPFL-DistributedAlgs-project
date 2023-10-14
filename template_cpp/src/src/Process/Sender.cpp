@@ -4,6 +4,7 @@
 
 #include "Sender.h"
 #include <iostream>
+#include <signal.h>
 #include <fstream>
 
 #define DEBUG 1
@@ -14,7 +15,9 @@ void debug(T msg) {
   }
 }
 
-Sender::Sender(std::string ipAddress, std::string port, std::string logsPath, int processId, int m) : link(SENDER, ipAddress, port), port(port), logsPath(logsPath), processId(processId), m(m) {}
+Sender::Sender(std::string ipAddress, std::string port, std::string logsPath, std::stringstream *logsBuffer, int processId, int m) : link(SENDER, ipAddress, port), port(port), logsPath(logsPath), processId(processId), m(m) {
+  logsBufferPtr = logsBuffer;
+}
 
 /**
  * With the use of a PerfectLink, sends broadcasts to the destiny.
@@ -29,13 +32,24 @@ void Sender::sendBroadcasts() {
     std::string message = std::to_string(processId) + " " + std::to_string(i);
     link.send(message);
 
-    // Appends to the log file
-    std::ofstream logFile;
-    logFile.open(logsPath, std::ios_base::app);
-    logFile << "b " << i << " " << std::endl;
-    logFile.close();
+    // Appends to the log variable
+    (*logsBufferPtr) << "b " << i << " " << std::endl;
 
     // Prints a confirmation
     std::cout << "Sent message: " << message << std::endl;
   }
+
+  saveLogs();
+}
+
+void Sender::saveLogs() {
+
+  std::ofstream logFile;
+  logFile.open(logsPath, std::ios_base::app);
+  logFile << (*logsBufferPtr).str();
+
+  // Clears the buffer
+  (*logsBufferPtr).str("");
+
+  logFile.close();
 }

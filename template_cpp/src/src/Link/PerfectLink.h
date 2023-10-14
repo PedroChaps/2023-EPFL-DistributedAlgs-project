@@ -12,11 +12,14 @@
 #define RETRANSMISSION_TIMEOUT 100
 #define ACK_MSG "ACK"
 #define ACK_SIZE 3
+#include <set>
 
 /**
  * Basically a Link, but the sending and receiving of messages is implemented as Perfect Link.
  */
 class PerfectLink : public Link {
+
+  std::set<std::string> receivedMessages;
 
 public:
 

@@ -6,6 +6,7 @@
 #define DA_PROJECT_SENDER_H
 
 #include <string>
+#include <sstream>
 #include "../Link/PerfectLink.h"
 
 class Sender {
@@ -16,6 +17,7 @@ class Sender {
   std::string port;
 
   std::string logsPath;
+  std::stringstream *logsBufferPtr;
 
   int processId;
   // Number of messages to send
@@ -24,8 +26,10 @@ class Sender {
 
 public:
 
-  Sender(std::string ip, std::string port, std::string logsPath, int m, int processId);
+  Sender(std::string ip, std::string port, std::string logsPath, std::stringstream *logsBuffer, int m, int processId);
   void sendBroadcasts();
+  // Saves whatever is in `logsBuffer` to the file pointed by `logsPath`
+  void saveLogs();
 };
 
 
