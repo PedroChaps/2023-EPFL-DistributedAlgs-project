@@ -60,7 +60,7 @@ void Link::createSenderLink(int fd, const std::string &receiverIp, const std::st
 
 
 // Constructor for a sender Link
-Link::Link(int type, const std::string& receiverIp, std::string& receiverPort) {
+Link::Link(int type, const std::string& receiverIp, std::string& receiverPort) : receiverAddress(receiverIp), receiverPort(receiverPort) {
 
   // Create the socket
   // SOCK_DGRAM: for UDP (if using TCP, use SOCK_STREAM)
@@ -122,7 +122,7 @@ std::string Link::receive() {
   }
 
   // Create a std::string from the received data
-  std::string receivedData(buffer, static_cast<size_t>(n));
+  std::string receivedData(buffer, static_cast<size_t>(n-1));
 
   debug("[Link] Received message: " + receivedData);
 
@@ -166,6 +166,15 @@ struct sockaddr_in& Link::getOtherAddr() {
 
 socklen_t Link::getAddrLen() {
   return this->addrLen;
+}
+
+
+std::string Link::getReceiverAddress() {
+  return this->receiverAddress;
+}
+
+std::string Link::getReceiverPort() {
+  return this->receiverPort;
 }
 
 //const sockaddr_in &Link::getOwnerAddress() const {

@@ -45,6 +45,9 @@ class Link {
    */
   int receiverId;
 
+  std::string receiverAddress;
+  std::string receiverPort;
+
   /**
    * The socket used to send messages through this Link.
    */
@@ -89,6 +92,8 @@ public:
   int getOwnerId() const;
   void setOwnerId(int ownerId);
   int getReceiverId() const;
+  std::string getReceiverAddress();
+  std::string getReceiverPort();
   void setReceiverId(int receiverId);
   int getUdpSocket() const;
   void setUdpSocket(int socket);

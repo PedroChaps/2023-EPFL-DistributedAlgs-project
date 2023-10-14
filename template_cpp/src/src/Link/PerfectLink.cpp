@@ -69,6 +69,7 @@ void PerfectLink::send(std::string message) {
 }
 
 
+/*
 std::string PerfectLink::receive() {
 
   // Receive the message
@@ -88,7 +89,39 @@ std::string PerfectLink::receive() {
   debug("[PerfectLink] Sending ACK...");
 
   sendto(Link::getUdpSocket(), ACK_MSG, ACK_SIZE, 0, &addr, sizeof(struct sockaddr_in));
-  debug("[PerfectLink] ACK sent to client!\n");
+  debug("[PerfectLink] ACK sent to client (" + Link::getReceiverAddress() + ":" + Link::getReceiverPort() + ")");
+
+  // Checks if the message was already received
+  if (receivedMessages.find(receivedData) != receivedMessages.end()) {
+    debug("[PerfectLink] Message already received, ignoring...");
+    return "";
+  }
+  receivedMessages.insert(receivedData);
+
+  return receivedData;
+}*/
+
+std::string PerfectLink::receive() {
+  // Receive the message
+  auto receivedData = Link::receive();
+  debug("[PerfectLink] Received message: " + receivedData);
+
+  // Create a temporary copy of sockaddr_in as sockaddr because of the sendto() type of arguments
+  struct sockaddr_in addrIPv4;
+  memcpy(&addrIPv4, &Link::getOtherAddr(), sizeof(struct sockaddr_in));
+
+  // Extract IP address and port from sockaddr_in
+  char ipStr[INET_ADDRSTRLEN];
+  int port = ntohs(addrIPv4.sin_port);
+
+  inet_ntop(AF_INET, &(addrIPv4.sin_addr), ipStr, INET_ADDRSTRLEN);
+
+  debug("[PerfectLink] Sending ACK...");
+
+  // Use the extracted IP address and port in your message
+  std::string ackMessage = "[PerfectLink] ACK sent to client (" + std::string(ipStr) + ":" + std::to_string(port) + ")";
+  sendto(Link::getUdpSocket(), ACK_MSG, ACK_SIZE, 0, reinterpret_cast<struct sockaddr*>(&addrIPv4), sizeof(struct sockaddr_in));
+  debug(ackMessage);
 
   // Checks if the message was already received
   if (receivedMessages.find(receivedData) != receivedMessages.end()) {
