@@ -12,7 +12,7 @@
 #define RECEIVER 0
 #define SENDER 1
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 65536 // 64KiB, according to the project description
 
 /**
  * Representation of a Link that will enable the connection of two Processes, either to send or to receive messages.

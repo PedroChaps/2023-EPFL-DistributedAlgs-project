@@ -62,7 +62,7 @@ void sendMessageThread(int threadId, std::basic_stringstream<char> *logsBufferPt
       (*logsBufferPtr) << "b " << nMessagesSent << " " << std::endl;
     }
 
-    // Simulate sending the message (you can replace this with your actual sending logic)
+    // Sends the message
     link.send(message);
     std::cout << "Thread " << threadId << " sent message: " << message << std::endl;
   }

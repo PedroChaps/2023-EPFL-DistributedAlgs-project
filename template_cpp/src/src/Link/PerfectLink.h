@@ -9,7 +9,7 @@
 #include <vector>
 
 #define MAX_RETRANSMISSIONS 9999999
-#define RETRANSMISSION_TIMEOUT 100
+#define RETRANSMISSION_TIMEOUT 100000 // (1.000.000 microseconds = 1 second)
 #define ACK_MSG "ACK"
 #define ACK_SIZE 3
 

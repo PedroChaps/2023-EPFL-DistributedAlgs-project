@@ -25,9 +25,11 @@ void debug(T msg) {
 
 void PerfectLink::send(std::string message) {
 
-  for (int tries = 0; tries < MAX_RETRANSMISSIONS; tries++) {
+  int tries = 0;
+  while (1) {
+    tries++;
 
-    debug("[PerfectLink] Try number " + std::to_string(tries+1) + " to send message: " + message);
+    debug("[PerfectLink] Try number " + std::to_string(tries) + " to send message: " + message);
 
     // Sends the message
     Link::send(message);
@@ -35,7 +37,8 @@ void PerfectLink::send(std::string message) {
     // Set up a timer for receiving an ACK
     struct timeval timeout;
     timeout.tv_sec = 0;
-    timeout.tv_usec = RETRANSMISSION_TIMEOUT * 1000; // Convert to microseconds
+    // Multiplies by the number of tries to add a naive exponential backoff
+    timeout.tv_usec = RETRANSMISSION_TIMEOUT * tries; // Number in microseconds (1.000.000 microseconds = 1 second)
 
     // Reuse Socket's FD
     int sockFd = Link::getUdpSocket();
