@@ -7,11 +7,9 @@
 #include <cstring>
 #include <ctime>
 #include <cstdlib>
-#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <unistd.h>
 #include <arpa/inet.h>
 
 #define DEBUG 1

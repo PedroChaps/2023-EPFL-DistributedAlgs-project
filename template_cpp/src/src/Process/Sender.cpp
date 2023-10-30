@@ -20,52 +20,9 @@ void debug(T msg) {
   }
 }
 
-Sender::Sender(std::string ipAddress, std::string port, std::string logsPath, std::stringstream *logsBuffer, int processId, int m) : port(port), logsPath(logsPath), processId(processId), m(m) {
+Sender::Sender(std::string ipAddress, std::string port, std::string logsPath, std::stringstream *logsBuffer, int m, int processId) : link(SENDER, ipAddress, port), port(port), logsPath(logsPath), m(m), processId(processId) {
 
   logsBufferPtr = logsBuffer;
-
-  // Creates a link for each thread
-  for (int i = 0; i < N_THREADS; i++) {
-    PerfectLink link(SENDER, ipAddress, port);
-    links.push_back(link);
-  }
-}
-
-std::queue<std::string> messageQueue;
-std::mutex mtx;
-std::condition_variable cv;
-std::atomic<bool> hasMessages(true);
-
-void sendMessageThread(int threadId, std::basic_stringstream<char> *logsBufferPtr, PerfectLink link) {
-
-  while (1) {
-    std::string message;
-    // Creates block for the critical section
-    {
-      std::unique_lock<std::mutex> lock(mtx);
-
-      // Wait until there's a message in the queue or all messages have been sent
-      cv.wait(lock, [] { return !messageQueue.empty() || !hasMessages; });
-
-      if (messageQueue.empty()) {
-        return;
-      }
-
-      // Gets the message from the queue
-      message = messageQueue.front();
-      messageQueue.pop();
-
-      // Reads the number of messages sent
-      int nMessagesSent = std::stoi(message.substr(message.find(' ') + 1));
-
-      // Appends to the log variable
-      (*logsBufferPtr) << "b " << nMessagesSent << " " << std::endl;
-    }
-
-    // Sends the message
-    link.send(message);
-    std::cout << "Thread " << threadId << " sent message: " << message << std::endl;
-  }
 }
 
 /**
@@ -74,33 +31,19 @@ void sendMessageThread(int threadId, std::basic_stringstream<char> *logsBufferPt
  * */
 void Sender::sendBroadcasts() {
 
-  std::vector<std::thread> threads;
-  for (int i = 0; i < N_THREADS; i++) {
-    auto idx = static_cast<unsigned long>(i);
-    threads.emplace_back(sendMessageThread, i, logsBufferPtr, links[idx]);
-  }
-
-
+  // TODO: change it so it considers the process becoming dead
   for (int i = 1; i <= m; i++) {
 
-    // Build the message
+    // Sends the message
     std::string message = std::to_string(processId) + " " + std::to_string(i);
+    link.send(message);
 
-    {
-      std::lock_guard<std::mutex> lock(mtx);
-      messageQueue.push(message);
-    }
-    cv.notify_one(); // Notify a waiting thread that there's a message to process
+    // Appends to the log variable
+    (*logsBufferPtr) << "b " << i << " " << std::endl;
+
+    // Prints a confirmation
+    std::cout << "Sent message: " << message << std::endl;
   }
-
-  hasMessages = false;
-  cv.notify_all();
-
-  // Wait for all threads to finish
-  for (std::thread& t : threads) {
-    t.join();
-  }
-
 
   saveLogs();
 }

@@ -13,8 +13,8 @@ void sendMessageThread(int threadId, std::basic_stringstream<char> *logsBufferPt
 
 class Sender {
 
-  // PerfectLink link;
-  std::vector<PerfectLink> links;
+  PerfectLink link;
+  // std::vector<PerfectLink> links;
 
   std::string ipAddress;
   std::string port;
@@ -22,9 +22,9 @@ class Sender {
   std::string logsPath;
   std::stringstream *logsBufferPtr;
 
-  int processId;
   // Number of messages to send
   int m;
+  int processId;
 
 
 public:

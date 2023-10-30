@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
   else {
     std::cout << "I am a sender!\n\n";
 
-    Sender sender(receiverIp, receiverPort, logsPath, &logsBuffer, static_cast<int>(id), static_cast<int>(configValues.m));
+    Sender sender(receiverIp, receiverPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), static_cast<int>(id));
     sender.sendBroadcasts();
   }
 
