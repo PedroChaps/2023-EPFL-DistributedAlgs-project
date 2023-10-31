@@ -9,8 +9,7 @@
 #include "Process/Sender.h"
 #include "Link/PerfectLink.h"
 
-
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
   if (DEBUG) {
@@ -18,35 +17,41 @@ void debug(T msg) {
   }
 }
 
+// Global variables are necessary for writting in the logs in case of a signal
+std::stringstream logsBuffer;
+std::string logsPath;
+
+// Struct to facilitate the reading of the config file
 struct ConfigValues {
   unsigned long m; // number of messages to send
   unsigned long i; // index of the receiver Process
 };
 
+// Struct to facilitate the reading of the hosts file
 struct IpAndPort {
   std::string ip;
   std::string port;
 };
 
-// Global variables are necessary for writting in the logs in case of a signal
-std::stringstream logsBuffer;
-std::string logsPath;
-
+// Some declaration of functions
 ConfigValues readConfigFile(std::string& configPath);
 IpAndPort parseHostsFileById(std::vector<Parser::Host> hosts, unsigned long id);
 
+// Function to handle the SIGINT and SIGTERM signals
+// It will write the logs to the output file before stopping the program
 static void stop(int) {
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
   signal(SIGINT, SIG_DFL);
 
-  std::cout << "I'm ded.\n";
+  std::cout << "I'm ded." << std::endl;
+  std::cout << "------------------" << std::endl;
 
   // immediately stop network packet processing
-  std::cout << "Immediately stopping network packet processing.\n";
+  std::cout << "Immediately stopping network packet processing." << std::endl;
 
   // write/flush output file if necessary
-  std::cout << "Writing output.\n";
+  std::cout << "Writing output to the log file." << std::endl;
   std::ofstream logFile;
   logFile.open(logsPath, std::ios_base::app);
   logFile << logsBuffer.str();
@@ -55,10 +60,12 @@ static void stop(int) {
   // Clears the buffer
   logsBuffer.str("");
 
+  std::cout << "Exiting the program." << std::endl;
   // exit directly from signal handler
   exit(0);
 }
 
+// Function to display the initial information
 static void displayInitialInfo(Parser parser){
 
   std::cout << "My PID: " << getpid() << "\n";
@@ -90,7 +97,7 @@ static void displayInitialInfo(Parser parser){
   std::cout << parser.configPath() << "\n\n";
 }
 
-
+// Function to read the config file
 ConfigValues readConfigFile(std::string& configPath) {
 
   std::ifstream file(configPath);
@@ -118,7 +125,8 @@ ConfigValues readConfigFile(std::string& configPath) {
 
 }
 
-
+// Function to parse the hosts file.
+// It will return the ip and port of the receiver Process.
 IpAndPort parseHostsFileById(std::vector<Parser::Host> hosts, unsigned long id) {
 
   for (auto &host : hosts) {
@@ -139,12 +147,10 @@ IpAndPort parseHostsFileById(std::vector<Parser::Host> hosts, unsigned long id) 
 
 int main(int argc, char **argv) {
 
-  // TODO: idk what this does, confirm
   signal(SIGTERM, stop);
   signal(SIGINT, stop);
   logsBuffer.str("");
 
-  // TODO: check what this is
   // `true` means that a config file is required.
   // Call with `false` if no config file is necessary.
   bool requireConfig = true;
@@ -173,6 +179,8 @@ int main(int argc, char **argv) {
   debug("[main] Receiver IP: " + receiverIp);
   debug("[main] Receiver Port: " + receiverPort);
 
+  // Based on the config file's id, we know if this process is a sender or a receiver.
+  // Proceeds accordingly.
   if (configValues.i == id) {
     std::cout << "I am a receiver!\n\n";
 
@@ -186,7 +194,7 @@ int main(int argc, char **argv) {
     sender.sendBroadcasts();
   }
 
-  std::cout << "Broadcasting and delivering messages...\n\n";
+  std::cout << "My job here is done. Waiting for my termination...\n\n";
 
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.

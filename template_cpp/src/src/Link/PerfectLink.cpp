@@ -12,7 +12,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
   if (DEBUG) {
@@ -20,13 +20,16 @@ void debug(T msg) {
   }
 }
 
-
+// Override of the `send()` method from the Link class.
+// It sends a message and waits for an ACK. If it doesn't receive an ACK, it retransmits the message.
 void PerfectLink::send(std::string message) {
 
+  // Uses the number of tries for debugging purposes and to add a naive exponential backoff
   int tries = 0;
+  // Infinite loop because there is no maximum number of retransmissions
   while (1) {
-    tries++;
 
+    tries++;
     debug("[PerfectLink] Try number " + std::to_string(tries) + " to send message: " + message);
 
     // Sends the message
@@ -34,9 +37,9 @@ void PerfectLink::send(std::string message) {
 
     // Set up a timer for receiving an ACK
     struct timeval timeout;
-    timeout.tv_sec = 0;
     // Multiplies by the number of tries to add a naive exponential backoff
     timeout.tv_usec = RETRANSMISSION_TIMEOUT * tries; // Number in microseconds (1.000.000 microseconds = 1 second)
+    timeout.tv_sec = 0;
 
     // Reuse Socket's FD
     int sockFd = Link::getUdpSocket();
@@ -69,43 +72,13 @@ void PerfectLink::send(std::string message) {
   }
 }
 
-
-/*
+// Override of the `receive()` method from the Link class.
+// It receives a message and sends an ACK.
 std::string PerfectLink::receive() {
 
   // Receive the message
   auto receivedData = Link::receive();
-  debug("[PerfectLink] Received message: " + receivedData);
-
-
-  // TODO: make this concurrent by spawning a thread that ACKs continues with the interaction with the client i.e. that sends the ACK
-  // TODO: Need to save the address of the client that sent the message in case it is overwritten later
-
-  // Since the client address was stored in the `otherAddr` variable, we can use it to send the ACK
-
-  // Create a temporary copy of sockaddr_in as sockaddr because of the sendto() type of arguments
-  struct sockaddr addr;
-  memcpy(&addr, &Link::getOtherAddr(), sizeof(struct sockaddr_in));
-
-  debug("[PerfectLink] Sending ACK...");
-
-  sendto(Link::getUdpSocket(), ACK_MSG, ACK_SIZE, 0, &addr, sizeof(struct sockaddr_in));
-  debug("[PerfectLink] ACK sent to client (" + Link::getReceiverAddress() + ":" + Link::getReceiverPort() + ")");
-
-  // Checks if the message was already received
-  if (receivedMessages.find(receivedData) != receivedMessages.end()) {
-    debug("[PerfectLink] Message already received, ignoring...");
-    return "";
-  }
-  receivedMessages.insert(receivedData);
-
-  return receivedData;
-}*/
-
-std::string PerfectLink::receive() {
-  // Receive the message
-  auto receivedData = Link::receive();
-  debug("[PerfectLink] Received message: " + receivedData);
+  debug("[PerfectLink] Received message: `" + receivedData + "`");
 
   // Create a temporary copy of sockaddr_in as sockaddr because of the sendto() type of arguments
   struct sockaddr_in addrIPv4;
@@ -120,16 +93,16 @@ std::string PerfectLink::receive() {
   debug("[PerfectLink] Sending ACK...");
 
   // Use the extracted IP address and port in your message
-  std::string ackMessage = "[PerfectLink] ACK sent to client (" + std::string(ipStr) + ":" + std::to_string(port) + ")";
   sendto(Link::getUdpSocket(), ACK_MSG, ACK_SIZE, 0, reinterpret_cast<struct sockaddr*>(&addrIPv4), sizeof(struct sockaddr_in));
+  std::string ackMessage = "[PerfectLink] ACK sent to client (" + std::string(ipStr) + ":" + std::to_string(port) + ")";
   debug(ackMessage);
 
   // Checks if the message was already received
-  if (receivedMessages.find(receivedData) != receivedMessages.end()) {
+  if (receivedPackets.find(receivedData) != receivedPackets.end()) {
     debug("[PerfectLink] Message already received, ignoring...");
     return "";
   }
-  receivedMessages.insert(receivedData);
+  receivedPackets.insert(receivedData);
 
   return receivedData;
 }

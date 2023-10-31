@@ -14,11 +14,13 @@
 
 #define BUFFER_SIZE 65536 // 64KiB, according to the project description
 
+
+// Part of the implementation was taken from my previous Networking project (https://github.com/PedroChaps/RCProj-2022_2023/blob/main/server/GS.c)
 /**
  * Representation of a Link that will enable the connection of two Processes, either to send or to receive messages.
 
  * When a Process wants to send a message to another Process, it will use a Link to easily send it.
- * To do so, the Process creates a Link and calls the send method with the message.
+ * To do so, the Process creates a Link and calls the `send()` method with the message.
  *
  * Conversely, when a Process wants to receive a message from another Process, it will use a Link to easily receive it.
  *
@@ -31,34 +33,27 @@
 class Link {
 
   /**
-   * The id of the Process that creates the Link.
-   */
-  int ownerId;
-
-  std::string ownerAddress;
-
-  struct sockaddr_in otherAddr;
-  socklen_t addrLen = sizeof(otherAddr);
-
-  /**
-   * (If sending) The id of the receiver Process.
-   */
-  int receiverId;
-
-  std::string receiverAddress;
-  std::string receiverPort;
-
-  /**
    * The socket used to send messages through this Link.
    */
   int udpSocketFd;
 
   /**
-   * The address of the Process that sends messages through this Link.
+   * The address of the Process on the other end of the Link.
    */
-//  struct sockaddr_in senderAddress;
+  struct sockaddr_in otherAddr;
+  socklen_t addrLen = sizeof(otherAddr);
 
+  /**
+   * (If sending) The address & port of the receiver Process.
+   */
+  std::string receiverAddress;
+  std::string receiverPort;
+
+  /**
+   * Extra information about the receiver Process, used to save more information about the sender/receiver.
+   */
   struct addrinfo *res;
+
   /**
    * methods to construct the Link, based on the type of the Link.
    */
@@ -70,42 +65,28 @@ public:
 
   /**
    * Creates a Link that will be used to send messages.
-   *
-   * TODO: update docs
    */
   Link(int type, const std::string& receiverIp, std::string& receiverPort);
   Link(int type, std::string& ownPort);
 
   /**
    * Sends a message to the receiver Process.
+   * @param message The message to send.
    */
   virtual void send(std::string message);
 
   /**
    * Receives a message from the sender Process.
+   * @return The received message.
    */
   virtual std::string receive();
 
   /**
    * Setters and Getters
    * */
-  int getOwnerId() const;
-  void setOwnerId(int ownerId);
-  int getReceiverId() const;
-  std::string getReceiverAddress();
-  std::string getReceiverPort();
-  void setReceiverId(int receiverId);
   int getUdpSocket() const;
-  void setUdpSocket(int socket);
-  const sockaddr_in &getOwnerAddress() const;
-  void setOwnerAddress(const sockaddr_in &ownerAddress);
   struct addrinfo *getRes();
   struct sockaddr_in& getOtherAddr();
-  socklen_t getAddrLen();
-
-//  const sockaddr_in &getSenderAddress() const;
-//  int setSenderAddress(const sockaddr_in &senderAddress);
-
 };
 
 

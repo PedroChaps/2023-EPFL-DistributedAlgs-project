@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
   if (DEBUG) {
@@ -15,35 +15,43 @@ void debug(T msg) {
   }
 }
 
+// Constructor for a receiver Link.
 Receiver::Receiver(std::string port, std::string logsPath, std::stringstream *logsBuffer) : link(RECEIVER, port), port(port), logsPath(logsPath) {
   logsBufferPtr = logsBuffer;
 }
 
-/**
- * With the use of a PerfectLink, receives broadcasts from clients.
- *
- * */
+// With the use of a PerfectLink, receives broadcasts from clients.
 void Receiver::receiveBroadcasts() {
 
-  // TODO: change it so it considers the process becoming dead
   while (1) {
 
-    // Receive a message, if process not dead
+    // Receive a message through the link.
+    // Can be empty if the message was already received, so just ignores it.
     std::string received = link.receive();
     if (received.empty()) {
       continue;
     }
 
-    // Extracts the process id and the sequence number
-    // the mesage is in the format: "<process_id> <sequence_number>"
+    // Extracts the process id and the sequence numbers
+    // the mesage is in the format: "<process_id> <sequence_number1> <sequence_number2> ... <sequence_number8>"
     std::string processId = received.substr(0, received.find(' '));
-    std::string sequenceNumber = received.substr(received.find(' ') + 1);
+    std::string sequenceNumbers = received.substr(received.find(' ') + 1);
 
-    // Appends to the log variable
-    (*logsBufferPtr) << "d " << processId << " " << sequenceNumber << std::endl;
+    // Iterate over the sequence numbers and deliver them
+    // The numbers can have multiple length, so it needs to find the spaces and extract the numbers
+    std::string sequenceNumber;
+    while (sequenceNumbers.find(' ') != std::string::npos) {
+      sequenceNumber = sequenceNumbers.substr(0, sequenceNumbers.find(' '));
+      sequenceNumbers = sequenceNumbers.substr(sequenceNumbers.find(' ') + 1);
+
+      // Appends to the log variable
+      (*logsBufferPtr) << "d " << processId << " " << sequenceNumber << std::endl;
+    }
+
+    // Appends the final number
+    (*logsBufferPtr) << "d " << processId << " " << sequenceNumbers << std::endl;
 
     // Deliver the message
-    std::cout << "Received message: " << received << std::endl;
-
+    std::cout << "Received message: `" << received << "`" << std::endl;
   }
 }

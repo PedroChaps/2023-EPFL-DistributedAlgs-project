@@ -7,7 +7,7 @@
 #include <cstring>
 #include <netdb.h>
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
   if (DEBUG) {
@@ -15,6 +15,7 @@ void debug(T msg) {
   }
 }
 
+// Constructor for a receiver Link. Doesn't need a target IP and Port as it's the receiver
 void Link::createReceiverLink(int fd, const std::string& port) {
   struct addrinfo hints;
 
@@ -39,6 +40,7 @@ void Link::createReceiverLink(int fd, const std::string& port) {
   this->udpSocketFd = fd;
 }
 
+// Constructor for a sender Link. Needs a target IP and Port as it's the sender
 void Link::createSenderLink(int fd, const std::string &receiverIp, const std::string& port) {
   struct addrinfo hints;
 
@@ -55,11 +57,7 @@ void Link::createSenderLink(int fd, const std::string &receiverIp, const std::st
   this->udpSocketFd = fd;
 }
 
-// Part of the implementation was taken from my previous Networking project (https://github.com/PedroChaps/RCProj-2022_2023/blob/main/server/GS.c)
-
-
-
-// Constructor for a sender Link
+// Constructor for a sender Link that calls the `createSenderLink()` method
 Link::Link(int type, const std::string& receiverIp, std::string& receiverPort) : receiverAddress(receiverIp), receiverPort(receiverPort) {
 
   // Create the socket
@@ -80,7 +78,7 @@ Link::Link(int type, const std::string& receiverIp, std::string& receiverPort) :
 
 }
 
-// Constructor for a receiver Link. Doesn't need a target IP and Port
+// Constructor for a receiver Link that calls the `createReceiverLink()` method
 Link::Link(int type, std::string& ownPort) {
 
     // Create the socket
@@ -101,7 +99,7 @@ Link::Link(int type, std::string& ownPort) {
 
 }
 
-
+// Sends a message to the receiver Process on the other end of Link.
 void Link::send(std::string message) {
 
     ssize_t n = sendto(this->udpSocketFd, const_cast<char *>(message.c_str()), message.length() + 1, 0, res->ai_addr, res->ai_addrlen);
@@ -112,6 +110,7 @@ void Link::send(std::string message) {
     }
 }
 
+// Receives a message from the sender Process on the other end of Link.
 std::string Link::receive() {
   char buffer[BUFFER_SIZE];
 
@@ -132,28 +131,10 @@ std::string Link::receive() {
   return receivedData;
 }
 
-int Link::getOwnerId() const {
-  return this->ownerId;
-}
-
-void Link::setOwnerId(int id) {
-  this->ownerId = id;
-}
-
-int Link::getReceiverId() const {
-  return this->receiverId;
-}
-
-void Link::setReceiverId(int id) {
-  this->receiverId = id;
-}
+// Setters and Getters
 
 int Link::getUdpSocket() const {
   return this->udpSocketFd;
-}
-
-void Link::setUdpSocket(int socket) {
-  this->udpSocketFd = socket;
 }
 
 struct addrinfo *Link::getRes() {
@@ -163,26 +144,3 @@ struct addrinfo *Link::getRes() {
 struct sockaddr_in& Link::getOtherAddr() {
   return this->otherAddr;
 }
-
-socklen_t Link::getAddrLen() {
-  return this->addrLen;
-}
-
-
-std::string Link::getReceiverAddress() {
-  return this->receiverAddress;
-}
-
-std::string Link::getReceiverPort() {
-  return this->receiverPort;
-}
-
-//const sockaddr_in &Link::getOwnerAddress() const {
-//  return this->ownerAddress;
-//}
-//
-//void Link::setOwnerAddress(const sockaddr_in &address) {
-//  this->ownerAddress = address;
-//}
-
-
