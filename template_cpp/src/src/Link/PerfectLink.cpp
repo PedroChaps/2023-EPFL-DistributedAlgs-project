@@ -12,7 +12,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#define DEBUG 0
+#define DEBUG 1
 template <class T>
 void debug(T msg) {
   if (DEBUG) {

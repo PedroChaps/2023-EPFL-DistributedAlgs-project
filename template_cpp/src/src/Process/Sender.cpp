@@ -11,8 +11,9 @@
 #include <queue>
 #include <condition_variable>
 #include <atomic>
+#include<unistd.h>
 
-#define DEBUG 0
+#define DEBUG 1
 template <class T>
 void debug(T msg) {
   if (DEBUG) {
@@ -21,9 +22,15 @@ void debug(T msg) {
 }
 
 // Constructor for a receiver Link.
-Sender::Sender(std::string ipAddress, std::string port, std::string logsPath, std::stringstream *logsBuffer, int m, int processId) : link(SENDER, ipAddress, port), port(port), logsPath(logsPath), m(m), processId(processId) {
+Sender::Sender(std::vector<std::string> targetIps, std::vector<std::string> targetPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId) : myPort(myPort), targetIps(targetIps), targetPorts(targetPorts), logsPath(logsPath), m(m), nHosts(nHosts), processId(processId) {
 
   logsBufferPtr = logsBuffer;
+  links = std::vector<PerfectLink>();
+
+  // Creates a PerfectLink for each other process
+  for (unsigned long i = 0; i < static_cast<unsigned long>(nHosts); i++) {
+    links.push_back(PerfectLink(SENDER, myPort, targetIps[i], targetPorts[i]));
+  }
 }
 
 // With the use of a PerfectLink, sends broadcasts to the destiny.
@@ -36,7 +43,9 @@ void Sender::sendBroadcasts() {
     for (int j = i; j <= i + 7 && j <= m; j++) {
       message += " " + std::to_string(j);
     }
-    link.send(message);
+    for (auto link : links) {
+      link.send(message);
+    }
 
     // Appends to the log variable
     for (int j = i; j <= i + 7 && j <= m; j++) {

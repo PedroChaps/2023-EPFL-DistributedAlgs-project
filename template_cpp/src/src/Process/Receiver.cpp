@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 
-#define DEBUG 0
+#define DEBUG 1
 template <class T>
 void debug(T msg) {
   if (DEBUG) {
@@ -25,6 +25,7 @@ void Receiver::receiveBroadcasts() {
 
   while (1) {
 
+    debug("[Receiver] Waiting for a message...");
     // Receive a message through the link.
     // Can be empty if the message was already received, so just ignores it.
     std::string received = link.receive();
@@ -32,6 +33,7 @@ void Receiver::receiveBroadcasts() {
       continue;
     }
 
+    debug("[Receiver] Got one! Extracting stuff...");
     // Extracts the process id and the sequence numbers
     // the mesage is in the format: "<process_id> <sequence_number1> <sequence_number2> ... <sequence_number8>"
     std::string processId = received.substr(0, received.find(' '));
@@ -40,6 +42,7 @@ void Receiver::receiveBroadcasts() {
     // Iterate over the sequence numbers and deliver them
     // The numbers can have multiple length, so it needs to find the spaces and extract the numbers
     std::string sequenceNumber;
+    debug("[Receiver] Doing processing...");
     while (sequenceNumbers.find(' ') != std::string::npos) {
       sequenceNumber = sequenceNumbers.substr(0, sequenceNumbers.find(' '));
       sequenceNumbers = sequenceNumbers.substr(sequenceNumbers.find(' ') + 1);
@@ -51,7 +54,22 @@ void Receiver::receiveBroadcasts() {
     // Appends the final number
     (*logsBufferPtr) << "d " << processId << " " << sequenceNumbers << std::endl;
 
+    // saveLogs();
+
     // Deliver the message
     std::cout << "Received message: `" << received << "`" << std::endl;
   }
+}
+
+// After the messages are sent, writes the logs to the output file.
+void Receiver::saveLogs() {
+
+  std::ofstream logFile;
+  logFile.open(logsPath, std::ios_base::app);
+  logFile << (*logsBufferPtr).str();
+
+  // Clears the buffer
+  (*logsBufferPtr).str("");
+
+  logFile.close();
 }

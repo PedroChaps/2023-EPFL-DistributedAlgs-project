@@ -7,9 +7,10 @@
 #include <signal.h>
 #include "Process/Receiver.h"
 #include "Process/Sender.h"
+#include "Process/Process.h"
 #include "Link/PerfectLink.h"
 
-#define DEBUG 0
+#define DEBUG 1
 template <class T>
 void debug(T msg) {
   if (DEBUG) {
@@ -24,18 +25,17 @@ std::string logsPath;
 // Struct to facilitate the reading of the config file
 struct ConfigValues {
   unsigned long m; // number of messages to send
-  unsigned long i; // index of the receiver Process
 };
 
 // Struct to facilitate the reading of the hosts file
-struct IpAndPort {
-  std::string ip;
-  std::string port;
+struct IpsAndPorts {
+  std::vector<std::string> ips;
+  std::vector<std::string> ports;
 };
 
 // Some declaration of functions
 ConfigValues readConfigFile(std::string& configPath);
-IpAndPort parseHostsFileById(std::vector<Parser::Host> hosts, unsigned long id);
+IpsAndPorts parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort);
 
 // Function to handle the SIGINT and SIGTERM signals
 // It will write the logs to the output file before stopping the program
@@ -107,7 +107,7 @@ ConfigValues readConfigFile(std::string& configPath) {
     std::string line;
     if (std::getline(file, line)) {
       std::istringstream iss(line);
-      if (iss >> result.m >> result.i) {
+      if (iss >> result.m) {
         return result;
       } else {
         std::cerr << "Error: Could not read two numbers from the file." << std::endl;
@@ -121,27 +121,33 @@ ConfigValues readConfigFile(std::string& configPath) {
   }
 
   // If there was an error or the file couldn't be read, return default values.
-  return {0, 0};
-
+  return {0};
 }
 
 // Function to parse the hosts file.
 // It will return the ip and port of the receiver Process.
-IpAndPort parseHostsFileById(std::vector<Parser::Host> hosts, unsigned long id) {
+IpsAndPorts parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort) {
+
+  std::vector<std::string> ips;
+  std::vector<std::string> ports;
 
   for (auto &host : hosts) {
+    struct in_addr addr;
+    addr.s_addr = host.ip;
+
+    std::string ip = inet_ntoa(addr);
+    unsigned int port = static_cast<unsigned int>(host.port);
+
     if (host.id == id) {
-
-      struct in_addr addr;
-      addr.s_addr = host.ip;
-
-      return {inet_ntoa(addr), std::to_string(static_cast<unsigned int>(host.port))};
+      myPort = std::to_string(port);
+      // skip this host as it doesn't make sense to send to itself
+      continue;
     }
+    ips.push_back(ip);
+    ports.push_back(std::to_string(port));
   }
 
-  // If there was an error or the file couldn't be read, return default values.
-  return {"", ""};
-
+  return {ips, ports};
 }
 
 
@@ -172,27 +178,16 @@ int main(int argc, char **argv) {
 
   // Given the config file's id, we know the id of the receiver.
   // We can use this to get the receiver's ip and port by using the hosts file.
-  auto receiverIpAndPort = parseHostsFileById(hosts, configValues.i);
-
-  std::string receiverIp = receiverIpAndPort.ip;
-  std::string receiverPort = receiverIpAndPort.port;
-  debug("[main] Receiver IP: " + receiverIp);
-  debug("[main] Receiver Port: " + receiverPort);
+  std::string myPort;
+  auto receiverIpsAndPorts = parseHostsFile(hosts, id, myPort);
+  int nHosts = static_cast<int>(hosts.size())-1;
 
   // Based on the config file's id, we know if this process is a sender or a receiver.
   // Proceeds accordingly.
-  if (configValues.i == id) {
-    std::cout << "I am a receiver!\n\n";
+  std::cout << "I am a process!\n\n";
 
-    Receiver receiver(receiverPort, logsPath, &logsBuffer);
-    receiver.receiveBroadcasts();
-  }
-  else {
-    std::cout << "I am a sender!\n\n";
-
-    Sender sender(receiverIp, receiverPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), static_cast<int>(id));
-    sender.sendBroadcasts();
-  }
+  Process process(myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts.ips, receiverIpsAndPorts.ports);
+  process.doStuff();
 
   std::cout << "My job here is done. Waiting for my termination...\n\n";
 

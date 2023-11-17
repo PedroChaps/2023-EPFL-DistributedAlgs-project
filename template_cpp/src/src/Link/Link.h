@@ -59,14 +59,14 @@ class Link {
    */
   void createReceiverLink(int fd, const std::string& port);
 
-  void createSenderLink(int fd, const std::string& receiverIp, const std::string& port);
+  void createSenderLink(int fd, std::string ownPort, const std::string& receiverIp, const std::string& port);
 
 public:
 
   /**
    * Creates a Link that will be used to send messages.
    */
-  Link(int type, const std::string& receiverIp, std::string& receiverPort);
+  Link(int type, std::string& ownPort, const std::string& receiverIp, std::string& receiverPort);
   Link(int type, std::string& ownPort);
 
   /**

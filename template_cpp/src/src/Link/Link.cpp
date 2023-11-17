@@ -6,8 +6,11 @@
 #include <iostream>
 #include <cstring>
 #include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
-#define DEBUG 0
+#define DEBUG 1
 template <class T>
 void debug(T msg) {
   if (DEBUG) {
@@ -29,7 +32,7 @@ void Link::createReceiverLink(int fd, const std::string& port) {
     exit(1);
   }
 
-  debug("[Link] getaddrinfo() call succeeded");
+  debug("[Link] getaddrinfo() call succeeded on the Receiver");
 
   if (bind(fd, res->ai_addr, res->ai_addrlen) != 0) {
     perror("[Link] bind() call failed");
@@ -40,8 +43,45 @@ void Link::createReceiverLink(int fd, const std::string& port) {
   this->udpSocketFd = fd;
 }
 
+/*
 // Constructor for a sender Link. Needs a target IP and Port as it's the sender
-void Link::createSenderLink(int fd, const std::string &receiverIp, const std::string& port) {
+void Link::createSenderLink(int fd, std::string ownPort, const std::string &receiverIp, const std::string& port) {
+  struct addrinfo hints;
+
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_DGRAM;
+
+  if (getaddrinfo(const_cast<char*>(receiverIp.c_str()), const_cast<char*>(port.c_str()), &hints, &res) != 0) {
+    perror("[Link] getaddrinfo() call failed");
+    exit(1);
+  }
+
+  debug("[Link] getaddrinfo() call succeeded on the Sender");
+
+  int portInt = std::stoi(ownPort);
+  uint16_t portUint16 = static_cast<uint16_t>(portInt);
+
+  // Set up the sockaddr_in structure
+  struct sockaddr_in serverAddr;
+  memset(&serverAddr, 0, sizeof(serverAddr));
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_port = htons(portUint16);
+  serverAddr.sin_addr.s_addr = INADDR_ANY;
+
+  // Bind the socket to the specified port
+  if (bind(this->udpSocketFd, reinterpret_cast<struct sockaddr*>(&serverAddr), sizeof(serverAddr)) == -1) {
+    perror("Error binding socket");
+    close(this->udpSocketFd);
+    exit(1);
+  }
+
+  // The socket is now bound to the port specified by the user.
+  this->udpSocketFd = fd;
+}
+*/
+// Constructor for a sender Link. Needs a target IP and Port as it's the sender
+void Link::createSenderLink(int fd, std::string ownPort, const std::string &receiverIp, const std::string& port) {
   struct addrinfo hints;
 
   memset(&hints, 0, sizeof hints);
@@ -57,23 +97,34 @@ void Link::createSenderLink(int fd, const std::string &receiverIp, const std::st
   this->udpSocketFd = fd;
 }
 
-// Constructor for a sender Link that calls the `createSenderLink()` method
-Link::Link(int type, const std::string& receiverIp, std::string& receiverPort) : receiverAddress(receiverIp), receiverPort(receiverPort) {
 
+// Constructor for a sender Link that calls the `createSenderLink()` method
+Link::Link(int type, std::string& ownPort, const std::string& receiverIp, std::string& receiverPort) : receiverAddress(receiverIp), receiverPort(receiverPort) {
+
+  debug("[Link] (Sender) Creating Link");
   // Create the socket
   // SOCK_DGRAM: for UDP (if using TCP, use SOCK_STREAM)
   // AF_INET: for IPv4 (if using IPv6, use AF_INET6)
   this->udpSocketFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
   if (this->udpSocketFd < 0) {
-    perror("[Link] socket creation failed");
+    perror("[Link] (Sender) socket creation failed");
+    exit(1);
+  }
+
+  // Enable port reuse
+  debug("[Link] (Sender) Enabling port reuse");
+  int reuse = 1;
+  if (setsockopt(this->udpSocketFd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+    perror("setsockopt(SO_REUSEADDR) failed");
+    close(this->udpSocketFd);
     exit(1);
   }
 
   if (type == SENDER) {
-    this->createSenderLink(this->udpSocketFd, receiverIp, receiverPort);
+    this->createSenderLink(this->udpSocketFd, ownPort, receiverIp, receiverPort);
   } else {
-    perror("[Link] something went wrong. Should be a Sender!");
+    perror("[Link] (Sender) something went wrong. Should be a Sender!");
     }
 
 }
@@ -81,21 +132,32 @@ Link::Link(int type, const std::string& receiverIp, std::string& receiverPort) :
 // Constructor for a receiver Link that calls the `createReceiverLink()` method
 Link::Link(int type, std::string& ownPort) {
 
-    // Create the socket
-    // SOCK_DGRAM: for UDP (if using TCP, use SOCK_STREAM)
-    // AF_INET: for IPv4 (if using IPv6, use AF_INET6)
-    this->udpSocketFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  debug("[Link] (Receiver) Creating Link");
 
-    if (this->udpSocketFd < 0) {
-        perror("[Link] socket creation failed");
-        exit(1);
-    }
+  // Create the socket
+  // SOCK_DGRAM: for UDP (if using TCP, use SOCK_STREAM)
+  // AF_INET: for IPv4 (if using IPv6, use AF_INET6)
+  this->udpSocketFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
-    if (type == RECEIVER) {
-        this->createReceiverLink(this->udpSocketFd, ownPort);
-    } else {
-      perror("[Link] something went wrong. Should be a Receiver!");
-    }
+  if (this->udpSocketFd < 0) {
+      perror("[Link] (Receiver) socket creation failed");
+      exit(1);
+  }
+
+  // Enable port reuse
+  debug("[Link] (Receiver) Enabling port reuse");
+  int reuse = 1;
+  if (setsockopt(this->udpSocketFd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+    perror("setsockopt(SO_REUSEADDR) failed");
+    close(this->udpSocketFd);
+    exit(1);
+  }
+
+  if (type == RECEIVER) {
+      this->createReceiverLink(this->udpSocketFd, ownPort);
+  } else {
+    perror("[Link] (Receiver) something went wrong. Should be a Receiver!");
+  }
 
 }
 

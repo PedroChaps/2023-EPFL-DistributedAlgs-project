@@ -47,7 +47,7 @@ public:
    * @param receiverIp The IP of the receiver Process.
    * @param receiverPort The port of the receiver Process.
    */
-  PerfectLink(int type, const std::string& receiverIp, std::string& receiverPort) : Link(type, receiverIp, receiverPort){}
+  PerfectLink(int type, std::string& ownPort, const std::string& receiverIp, std::string& receiverPort) : Link(type, ownPort, receiverIp, receiverPort){}
   PerfectLink(int type, std::string& ownPort) : Link(type, ownPort){}
 
   /**

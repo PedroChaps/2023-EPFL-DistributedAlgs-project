@@ -49,6 +49,8 @@ public:
    * With the use of a PerfectLink, remains actively listening for broadcasts (i.e. messages) from Sender processes.
    */
   void receiveBroadcasts();
+
+  void saveLogs();
 };
 
 

@@ -16,15 +16,15 @@
 class Sender {
 
   /**
-   * The Perfect Link used to send messages.
+   * The port used to send messages.
    */
-  PerfectLink link;
+  std::string myPort;
 
   /**
    * The IP address and port of the receiver Process.
    */
-  std::string ipAddress;
-  std::string port;
+  std::vector<std::string> targetIps;
+  std::vector<std::string> targetPorts;
 
   /**
    * The path to the output file.
@@ -40,11 +40,17 @@ class Sender {
    * The number of messages to send.
    */
   int m;
+  int nHosts;
 
   /**
    * The id of this process, sent in the messages.
    */
   int processId;
+
+  /**
+   * The Perfect Link used to send messages.
+   */
+  std::vector<PerfectLink> links;
 
 public:
 
@@ -57,7 +63,7 @@ public:
    * @param m The number of messages to send.
    * @param processId The id of this process, sent in the messages.
    */
-  Sender(std::string ip, std::string port, std::string logsPath, std::stringstream *logsBuffer, int m, int processId);
+  Sender(std::vector<std::string> targetIps, std::vector<std::string> targetPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId);
 
   /**
    * With the use of a PerfectLink, sends batches of messages to the destiny.
