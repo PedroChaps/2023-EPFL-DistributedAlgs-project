@@ -5,7 +5,8 @@
 #include "Process.h"
 
 // Constructor
-Process::Process(std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, std::vector<std::string> targetIPs, std::vector<std::string> targetPorts) : tReceiver(myPort, logsPath, logsBuffer), tSender(targetIPs, targetPorts, myPort, logsPath, logsBuffer, m, nHosts, processId) {}
+Process::Process(std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts) :
+link(PerfectLink(myPort)), tReceiver(link, myPort, logsPath, logsBuffer), tSender(targetIPsAndPorts, myPort, logsPath, logsBuffer, m, nHosts, processId, link) {}
 
 // Start doing stuff i.e. sending and receiving messages on both threads.
 void Process::doStuff() {

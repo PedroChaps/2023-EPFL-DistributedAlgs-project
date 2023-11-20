@@ -27,15 +27,9 @@ struct ConfigValues {
   unsigned long m; // number of messages to send
 };
 
-// Struct to facilitate the reading of the hosts file
-struct IpsAndPorts {
-  std::vector<std::string> ips;
-  std::vector<std::string> ports;
-};
-
 // Some declaration of functions
 ConfigValues readConfigFile(std::string& configPath);
-IpsAndPorts parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort);
+std::vector<std::string> parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort);
 
 // Function to handle the SIGINT and SIGTERM signals
 // It will write the logs to the output file before stopping the program
@@ -125,11 +119,10 @@ ConfigValues readConfigFile(std::string& configPath) {
 }
 
 // Function to parse the hosts file.
-// It will return the ip and port of the receiver Process.
-IpsAndPorts parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort) {
+// It will return a vector of ips and the respective ports, in the format `<ip>:<port>`.
+std::vector<std::string> parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort) {
 
-  std::vector<std::string> ips;
-  std::vector<std::string> ports;
+  std::vector<std::string> ipsAndPorts;
 
   for (auto &host : hosts) {
     struct in_addr addr;
@@ -143,11 +136,10 @@ IpsAndPorts parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, st
       // skip this host as it doesn't make sense to send to itself
       continue;
     }
-    ips.push_back(ip);
-    ports.push_back(std::to_string(port));
+    ipsAndPorts.push_back(ip + ":" + std::to_string(port));
   }
 
-  return {ips, ports};
+  return ipsAndPorts;
 }
 
 
@@ -186,7 +178,7 @@ int main(int argc, char **argv) {
   // Proceeds accordingly.
   std::cout << "I am a process!\n\n";
 
-  Process process(myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts.ips, receiverIpsAndPorts.ports);
+  Process process(myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts);
   process.doStuff();
 
   std::cout << "My job here is done. Waiting for my termination...\n\n";

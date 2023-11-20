@@ -18,6 +18,7 @@ void debug(T msg) {
   }
 }
 
+/*
 // Constructor for a receiver Link. Doesn't need a target IP and Port as it's the receiver
 void Link::createReceiverLink(int fd, const std::string& port) {
   struct addrinfo hints;
@@ -43,7 +44,6 @@ void Link::createReceiverLink(int fd, const std::string& port) {
   this->udpSocketFd = fd;
 }
 
-/*
 // Constructor for a sender Link. Needs a target IP and Port as it's the sender
 void Link::createSenderLink(int fd, std::string ownPort, const std::string &receiverIp, const std::string& port) {
   struct addrinfo hints;
@@ -54,25 +54,6 @@ void Link::createSenderLink(int fd, std::string ownPort, const std::string &rece
 
   if (getaddrinfo(const_cast<char*>(receiverIp.c_str()), const_cast<char*>(port.c_str()), &hints, &res) != 0) {
     perror("[Link] getaddrinfo() call failed");
-    exit(1);
-  }
-
-  debug("[Link] getaddrinfo() call succeeded on the Sender");
-
-  int portInt = std::stoi(ownPort);
-  uint16_t portUint16 = static_cast<uint16_t>(portInt);
-
-  // Set up the sockaddr_in structure
-  struct sockaddr_in serverAddr;
-  memset(&serverAddr, 0, sizeof(serverAddr));
-  serverAddr.sin_family = AF_INET;
-  serverAddr.sin_port = htons(portUint16);
-  serverAddr.sin_addr.s_addr = INADDR_ANY;
-
-  // Bind the socket to the specified port
-  if (bind(this->udpSocketFd, reinterpret_cast<struct sockaddr*>(&serverAddr), sizeof(serverAddr)) == -1) {
-    perror("Error binding socket");
-    close(this->udpSocketFd);
     exit(1);
   }
 
@@ -80,24 +61,7 @@ void Link::createSenderLink(int fd, std::string ownPort, const std::string &rece
   this->udpSocketFd = fd;
 }
 */
-// Constructor for a sender Link. Needs a target IP and Port as it's the sender
-void Link::createSenderLink(int fd, std::string ownPort, const std::string &receiverIp, const std::string& port) {
-  struct addrinfo hints;
-
-  memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_DGRAM;
-
-  if (getaddrinfo(const_cast<char*>(receiverIp.c_str()), const_cast<char*>(port.c_str()), &hints, &res) != 0) {
-    perror("[Link] getaddrinfo() call failed");
-    exit(1);
-  }
-
-  // The socket is now bound to the port specified by the user.
-  this->udpSocketFd = fd;
-}
-
-
+/*
 // Constructor for a sender Link that calls the `createSenderLink()` method
 Link::Link(int type, std::string& ownPort, const std::string& receiverIp, std::string& receiverPort) : receiverAddress(receiverIp), receiverPort(receiverPort) {
 
@@ -128,11 +92,12 @@ Link::Link(int type, std::string& ownPort, const std::string& receiverIp, std::s
     }
 
 }
+*/
 
-// Constructor for a receiver Link that calls the `createReceiverLink()` method
-Link::Link(int type, std::string& ownPort) {
+// Constructor for a Link
+Link::Link(std::string& ownPort) {
 
-  debug("[Link] (Receiver) Creating Link");
+  debug("[Link] Creating Link");
 
   // Create the socket
   // SOCK_DGRAM: for UDP (if using TCP, use SOCK_STREAM)
@@ -144,35 +109,59 @@ Link::Link(int type, std::string& ownPort) {
       exit(1);
   }
 
-  // Enable port reuse
-  debug("[Link] (Receiver) Enabling port reuse");
-  int reuse = 1;
-  if (setsockopt(this->udpSocketFd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-    perror("setsockopt(SO_REUSEADDR) failed");
-    close(this->udpSocketFd);
+  struct addrinfo hints;
+
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_flags = AI_PASSIVE;
+
+  if (getaddrinfo(NULL, const_cast<char*>(ownPort.c_str()), &hints, &res) != 0) {
+    perror("[Link] getaddrinfo() call failed");
     exit(1);
   }
 
-  if (type == RECEIVER) {
-      this->createReceiverLink(this->udpSocketFd, ownPort);
-  } else {
-    perror("[Link] (Receiver) something went wrong. Should be a Receiver!");
+  debug("[Link] getaddrinfo() call succeeded");
+  debug("[Link] Binding socket to port " + ownPort);
+
+  if (bind(this->udpSocketFd, res->ai_addr, res->ai_addrlen) != 0) {
+    perror("[Link] bind() call failed");
+    exit(1);
   }
 
+  debug("[Link] Socket bound to port " + ownPort);
 }
 
+
 // Sends a message to the receiver Process on the other end of Link.
-void Link::send(std::string message) {
+// Target process is of the type "<ip>:<port>"
+void Link::send(std::string message, std::string targetProcess) {
 
-    ssize_t n = sendto(this->udpSocketFd, const_cast<char *>(message.c_str()), message.length() + 1, 0, res->ai_addr, res->ai_addrlen);
+    // Split the targetProcess into IP and Port
+  std::string delimiter = ":";
+  std::string targetIp = targetProcess.substr(0, targetProcess.find(delimiter));
+  std::string targetPortStr = targetProcess.substr(targetProcess.find(delimiter) + 1, targetProcess.length());
+  int targetPort = std::stoi(targetPortStr);
 
-    if (n < 0) {
+  debug("[Link] Sending message: `" + message + "` to " + targetIp + ":" + targetPortStr);
+
+  // Create the target address in "struct sockaddr_in" form
+  struct sockaddr_in targetAddr;
+  memset(&targetAddr, 0, sizeof(targetAddr));
+  targetAddr.sin_family = AF_INET;
+  targetAddr.sin_port = htons(static_cast<uint16_t>(targetPort));
+  inet_pton(AF_INET, targetIp.c_str(), &targetAddr.sin_addr);
+
+  // Send the message
+  ssize_t n = sendto(this->udpSocketFd, message.c_str(), message.length(), 0, reinterpret_cast<struct sockaddr *>(&targetAddr), sizeof(targetAddr));
+
+  if (n < 0) {
         perror("[Link] sendto() call failed");
         exit(1);
     }
 }
 
-// Receives a message from the sender Process on the other end of Link.
+// Receives a message from the another Process on the other end of Link.
 std::string Link::receive() {
   char buffer[BUFFER_SIZE];
 
@@ -183,9 +172,9 @@ std::string Link::receive() {
   }
 
   // Create a std::string from the received data
-  std::string receivedData(buffer, static_cast<size_t>(n-1));
+  std::string receivedData(buffer, static_cast<size_t>(n));
 
-  debug("[Link] Received message: " + receivedData);
+  debug("[Link] Received message: `" + receivedData + "`");
 
   // Reset the buffer
   memset(buffer, 0, sizeof(buffer));

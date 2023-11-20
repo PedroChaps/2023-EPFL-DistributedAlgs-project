@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #define DEBUG 1
 template <class T>
@@ -22,19 +23,21 @@ void debug(T msg) {
 
 // Override of the `send()` method from the Link class.
 // It sends a message and waits for an ACK. If it doesn't receive an ACK, it retransmits the message.
-void PerfectLink::send(std::string message) {
+void PerfectLink::send(std::string message, std::string targetProcess) {
 
   // Uses the number of tries for debugging purposes and to add a naive exponential backoff
   int tries = 0;
   // Infinite loop because there is no maximum number of retransmissions
-  while (1) {
+  while (tries < 10) {
 
     tries++;
     debug("[PerfectLink] Try number " + std::to_string(tries) + " to send message: " + message);
 
     // Sends the message
-    Link::send(message);
+    Link::send(message, targetProcess);
 
+    // TODO: temp, remove later
+    /*
     // Set up a timer for receiving an ACK
     struct timeval timeout;
     // Multiplies by the number of tries to add a naive exponential backoff
@@ -59,7 +62,7 @@ void PerfectLink::send(std::string message) {
       recvfrom(sockFd, ackBuffer, ACK_SIZE, 0, Link::getRes()->ai_addr,
                reinterpret_cast<socklen_t *>(Link::getRes()->ai_addrlen));
 
-      debug("[PerfectLink] Received message: " + std::string(ackBuffer));
+      debug("[PerfectLink] Received message: `" + std::string(ackBuffer) + "`");
       // Check if the received message is an ACK
       if (strcmp(ackBuffer, ACK_MSG) == 0) {
         debug("[PerfectLink] it was an ACK!");
@@ -69,6 +72,8 @@ void PerfectLink::send(std::string message) {
       // Timeout, retransmit the message
       debug("[PerfectLink] Timeout, retransmitting message...");
     }
+    */
+    sleep(1);
   }
 }
 
@@ -79,6 +84,11 @@ std::string PerfectLink::receive() {
   // Receive the message
   auto receivedData = Link::receive();
   debug("[PerfectLink] Received message: `" + receivedData + "`");
+
+  // TODO: temp, remove later
+  if (receivedData == "ACK") {
+    return "";
+  }
 
   // Create a temporary copy of sockaddr_in as sockaddr because of the sendto() type of arguments
   struct sockaddr_in addrIPv4;

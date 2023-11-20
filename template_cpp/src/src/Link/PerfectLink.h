@@ -39,23 +39,20 @@ public:
    * Sends a message through this Perfect Link.
    * @param message The message to send.
    */
-  void send(std::string message) override;
+  void send(std::string message, std::string targetProcess) override;
 
   /**
-   * Constructors, for the Sender and the Receiver.
-   * @param type The type of the Link (SENDER or RECEIVER).
-   * @param receiverIp The IP of the receiver Process.
-   * @param receiverPort The port of the receiver Process.
+   * Constructor for the Perfect Link.
+   * @param ownPort The port of this Process.
    */
-  PerfectLink(int type, std::string& ownPort, const std::string& receiverIp, std::string& receiverPort) : Link(type, ownPort, receiverIp, receiverPort){}
-  PerfectLink(int type, std::string& ownPort) : Link(type, ownPort){}
+  PerfectLink(std::string& ownPort) :
+    Link(ownPort){}
 
   /**
    * Receives a message through this Perfect Link.
    * @return The received message.
    */
   std::string receive() override;
-
 
   /**
    * Destructor. Was necessary because of some cryptic error.

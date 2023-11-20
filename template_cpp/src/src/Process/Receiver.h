@@ -44,6 +44,7 @@ public:
    * @param logsBuffer The buffer used to store the logs.
    */
   Receiver(std::string port, std::string logsPath, std::stringstream *logsBuffer);
+  Receiver(PerfectLink link, std::string port, std::string logsPath, std::stringstream *logsBuffer);
 
   /**
    * With the use of a PerfectLink, remains actively listening for broadcasts (i.e. messages) from Sender processes.

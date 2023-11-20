@@ -22,15 +22,16 @@ void debug(T msg) {
 }
 
 // Constructor for a receiver Link.
-Sender::Sender(std::vector<std::string> targetIps, std::vector<std::string> targetPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId) : myPort(myPort), targetIps(targetIps), targetPorts(targetPorts), logsPath(logsPath), m(m), nHosts(nHosts), processId(processId) {
+Sender::Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId) :
+  myPort(myPort), targetIpsAndPorts(targetIpsAndPorts), logsPath(logsPath), m(m), nHosts(nHosts), processId(processId), link(PerfectLink(myPort)) {
 
   logsBufferPtr = logsBuffer;
-  links = std::vector<PerfectLink>();
+}
 
-  // Creates a PerfectLink for each other process
-  for (unsigned long i = 0; i < static_cast<unsigned long>(nHosts); i++) {
-    links.push_back(PerfectLink(SENDER, myPort, targetIps[i], targetPorts[i]));
-  }
+Sender::Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, PerfectLink link) :
+  myPort(myPort), targetIpsAndPorts(targetIpsAndPorts), logsPath(logsPath), m(m), nHosts(nHosts), processId(processId), link(link) {
+
+  logsBufferPtr = logsBuffer;
 }
 
 // With the use of a PerfectLink, sends broadcasts to the destiny.
@@ -43,8 +44,8 @@ void Sender::sendBroadcasts() {
     for (int j = i; j <= i + 7 && j <= m; j++) {
       message += " " + std::to_string(j);
     }
-    for (auto link : links) {
-      link.send(message);
+    for (auto target : targetIpsAndPorts) {
+      link.send(message, target);
     }
 
     // Appends to the log variable

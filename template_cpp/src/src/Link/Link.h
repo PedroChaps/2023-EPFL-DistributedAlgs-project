@@ -50,30 +50,22 @@ class Link {
   std::string receiverPort;
 
   /**
-   * Extra information about the receiver Process, used to save more information about the sender/receiver.
+   * Extra information about this Process, used to bind
    */
   struct addrinfo *res;
 
-  /**
-   * methods to construct the Link, based on the type of the Link.
-   */
-  void createReceiverLink(int fd, const std::string& port);
-
-  void createSenderLink(int fd, std::string ownPort, const std::string& receiverIp, const std::string& port);
 
 public:
-
   /**
    * Creates a Link that will be used to send messages.
    */
-  Link(int type, std::string& ownPort, const std::string& receiverIp, std::string& receiverPort);
-  Link(int type, std::string& ownPort);
+  Link(std::string& ownPort);
 
   /**
    * Sends a message to the receiver Process.
    * @param message The message to send.
    */
-  virtual void send(std::string message);
+  virtual void send(std::string message, std::string targetProcess);
 
   /**
    * Receives a message from the sender Process.
