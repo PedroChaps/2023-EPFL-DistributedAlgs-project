@@ -51,7 +51,7 @@ class PerfectLink : public Link {
    * save an ID that would allow to generate the message).
    */
   std::unordered_map<std::string, std::unordered_map<std::string, int>> unAckedMessages;
-
+  std::thread tRetransmissor;
 
 public:
 

@@ -24,7 +24,7 @@ The TReceiver will behave as the Receiver but with the added logic, so deliverin
 */
 class Process {
 
-  PerfectLink link;
+  PerfectLink &link;
   Receiver tReceiver;
   Sender tSender;
 
@@ -40,7 +40,7 @@ public:
    * @param targetIPs The IP addresses of the receiver Processes.
    * @param targetPorts The ports of the receiver Processes.
    */
-  Process(std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts);
+  Process(PerfectLink &link, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts);
 
   /**
    * Start doing stuff i.e. sending and receiving messages on both threads.

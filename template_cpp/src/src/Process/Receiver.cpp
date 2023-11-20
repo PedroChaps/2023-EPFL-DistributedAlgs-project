@@ -16,11 +16,11 @@ void debug(T msg) {
 }
 
 // Constructor for a receiver Link.
-Receiver::Receiver(std::string port, std::string logsPath, std::stringstream *logsBuffer) : link( port), port(port), logsPath(logsPath) {
+/*Receiver::Receiver(std::string port, std::string logsPath, std::stringstream *logsBuffer) : link( port), port(port), logsPath(logsPath) {
   logsBufferPtr = logsBuffer;
-}
+}*/
 
-Receiver::Receiver(PerfectLink link, std::string port, std::string logsPath, std::stringstream *logsBuffer) : link(link), port(port), logsPath(logsPath) {
+Receiver::Receiver(PerfectLink &link, std::string port, std::string logsPath, std::stringstream *logsBuffer) : link(link), port(port), logsPath(logsPath) {
   logsBufferPtr = logsBuffer;
 }
 

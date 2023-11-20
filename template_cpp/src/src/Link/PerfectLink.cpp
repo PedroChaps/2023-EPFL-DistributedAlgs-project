@@ -32,22 +32,27 @@ void PerfectLink::async_retransmissor() {
     // Iterate over the unAckedMessages and retransmit the messages
     for (auto& process : unAckedMessages) {
       for (auto& message : process.second) {
-        debug("[PerfectLink] (retransmissor) Retransmitting message: `" + message.first + "` to process " + process.first);
-        send(message.first, process.first);
+        // Removes the "ACK " from the message
+        std::string slicedMsg = message.first;//.substr(4);
+
+        debug("[PerfectLink] (retransmissor) Retransmitting message: `" + slicedMsg + "` to process " + process.first);
+        send(slicedMsg, process.first);
       }
     }
 
-    usleep(100000); // Sleep for 0.1 seconds
+    usleep(1000000); // Sleep for 0.1 seconds
   }
 }
 
 PerfectLink::PerfectLink(std::string& ownPort) : Link(ownPort) {
 
-
+  tRetransmissor = std::thread(&PerfectLink::async_retransmissor, this);
+/*
   std::thread tRetransmissor(&PerfectLink::async_retransmissor, this);
 
   // Wait for them to finish
   tRetransmissor.detach();
+*/
 
 }
 
@@ -58,6 +63,11 @@ void PerfectLink::send(std::string message, std::string targetProcess) {
   // Sends the message
   // TODO: change
   Link::send(message, targetProcess);
+
+  // If what was sent was an ACK, just returns
+  if (message.substr(0, 3) == ACK_MSG) {
+    return;
+  }
 
   // Put the sent message in the set of messages waiting for an ACK
   if (unAckedMessages.find(targetProcess) == unAckedMessages.end()) {

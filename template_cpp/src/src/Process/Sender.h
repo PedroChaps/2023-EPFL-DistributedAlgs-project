@@ -49,7 +49,7 @@ class Sender {
   /**
    * The Perfect Link used to send messages.
    */
-  PerfectLink link;
+  PerfectLink &link;
 
 public:
 
@@ -63,7 +63,7 @@ public:
    * @param processId The id of this process, sent in the messages.
    */
   Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId);
-  Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, PerfectLink link);
+  Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, PerfectLink &link);
 
   /**
    * With the use of a PerfectLink, sends batches of messages to the destiny.

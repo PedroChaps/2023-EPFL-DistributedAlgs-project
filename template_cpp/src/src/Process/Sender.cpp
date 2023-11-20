@@ -22,13 +22,13 @@ void debug(T msg) {
 }
 
 // Constructor for a receiver Link.
-Sender::Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId) :
+/*Sender::Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId) :
   myPort(myPort), targetIpsAndPorts(targetIpsAndPorts), logsPath(logsPath), m(m), nHosts(nHosts), processId(processId), link(PerfectLink(myPort)) {
 
   logsBufferPtr = logsBuffer;
-}
+}*/
 
-Sender::Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, PerfectLink link) :
+Sender::Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, PerfectLink &link) :
   myPort(myPort), targetIpsAndPorts(targetIpsAndPorts), logsPath(logsPath), m(m), nHosts(nHosts), processId(processId), link(link) {
 
   logsBufferPtr = logsBuffer;
