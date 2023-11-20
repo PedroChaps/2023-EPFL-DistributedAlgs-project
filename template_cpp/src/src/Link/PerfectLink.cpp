@@ -25,6 +25,24 @@ void debug(T msg) {
 // It sends a message and waits for an ACK. If it doesn't receive an ACK, it retransmits the message.
 void PerfectLink::send(std::string message, std::string targetProcess) {
 
+  // Sends the message
+  // TODO: change
+  int tries = 0;
+  while (tries < 5) {
+    tries++;
+    Link::send(message, targetProcess);
+  }
+
+  // Put the sent message in the set of messages waiting for an ACK
+  if (unAckedMessages.find(targetProcess) == unAckedMessages.end()) {
+    unAckedMessages[targetProcess] = std::unordered_map<std::string, int>();
+  }
+  unAckedMessages[targetProcess][message] = 0;
+
+  // Just returns, as the ACK will be received and treated asynchronously (or not received and the message retransmitted)
+  return;
+
+  /*
   // Uses the number of tries for debugging purposes and to add a naive exponential backoff
   int tries = 0;
   // Infinite loop because there is no maximum number of retransmissions
@@ -37,7 +55,7 @@ void PerfectLink::send(std::string message, std::string targetProcess) {
     Link::send(message, targetProcess);
 
     // TODO: temp, remove later
-    /*
+
     // Set up a timer for receiving an ACK
     struct timeval timeout;
     // Multiplies by the number of tries to add a naive exponential backoff
@@ -72,40 +90,46 @@ void PerfectLink::send(std::string message, std::string targetProcess) {
       // Timeout, retransmit the message
       debug("[PerfectLink] Timeout, retransmitting message...");
     }
-    */
-    sleep(1);
+  sleep(1);
   }
+   */
+
 }
 
 // Override of the `receive()` method from the Link class.
 // It receives a message and sends an ACK.
 std::string PerfectLink::receive() {
 
-  // Receive the message
-  auto receivedData = Link::receive();
+  std::string sourceProcess;
+
+  // Receive the message. Also gets the address of the sender so it can send an ACK back.
+  auto receivedData = Link::receive(sourceProcess);
+
   debug("[PerfectLink] Received message: `" + receivedData + "`");
 
-  // TODO: temp, remove later
-  if (receivedData == "ACK") {
+  // Check if the received message is an ACK by checking if it starts with "ACK"
+  // ACK messages are of the format "ACK <message>", where <message> is the message that was sent (eg. "ACK MSG 1 1 2 3 4 5 6 7 8")
+  if (receivedData.substr(0, 3) == ACK_MSG) {
+    debug("[PerfectLink] It was an ACK!");
+
+    // Removes the ACK from the unAckedMessages.
+    std::string message = receivedData.substr(4);
+    if (unAckedMessages.find(sourceProcess) != unAckedMessages.end()) {
+      if (unAckedMessages[sourceProcess].find(message) != unAckedMessages[sourceProcess].end()) {
+        unAckedMessages[sourceProcess].erase(message);
+      }
+    }
+
+    // returns an empty string because it was an ACK, so there's nothing to deliver
     return "";
   }
 
-  // Create a temporary copy of sockaddr_in as sockaddr because of the sendto() type of arguments
-  struct sockaddr_in addrIPv4;
-  memcpy(&addrIPv4, &Link::getOtherAddr(), sizeof(struct sockaddr_in));
-
-  // Extract IP address and port from sockaddr_in
-  char ipStr[INET_ADDRSTRLEN];
-  int port = ntohs(addrIPv4.sin_port);
-
-  inet_ntop(AF_INET, &(addrIPv4.sin_addr), ipStr, INET_ADDRSTRLEN);
-
+  // If it's not an ACK, it's a message, so send an ACK back
   debug("[PerfectLink] Sending ACK...");
+  std::string ackMessage = ACK_MSG + std::string(" ") + receivedData;
+  send(ackMessage, sourceProcess);
 
-  // Use the extracted IP address and port in your message
-  sendto(Link::getUdpSocket(), ACK_MSG, ACK_SIZE, 0, reinterpret_cast<struct sockaddr*>(&addrIPv4), sizeof(struct sockaddr_in));
-  std::string ackMessage = "[PerfectLink] ACK sent to client (" + std::string(ipStr) + ":" + std::to_string(port) + ")";
-  debug(ackMessage);
+  debug("[PerfectLink] ACK sent to client (" + sourceProcess + "): `" + ackMessage + "`");
 
   // Checks if the message was already received
   if (receivedPackets.find(receivedData) != receivedPackets.end()) {

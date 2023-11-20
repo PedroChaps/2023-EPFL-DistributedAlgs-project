@@ -71,7 +71,7 @@ public:
    * Receives a message from the sender Process.
    * @return The received message.
    */
-  virtual std::string receive();
+   std::string receive(std::string &sourceProcess);
 
   /**
    * Setters and Getters

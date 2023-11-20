@@ -162,14 +162,38 @@ void Link::send(std::string message, std::string targetProcess) {
 }
 
 // Receives a message from the another Process on the other end of Link.
-std::string Link::receive() {
+std::string Link::receive(std::string &sourceProcess) {
+
+  struct sockaddr_storage src_addr;
+  socklen_t addrlen = sizeof(src_addr);
   char buffer[BUFFER_SIZE];
 
-  ssize_t n = recvfrom(this->udpSocketFd, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&otherAddr), &addrLen);
+  ssize_t n = recvfrom(this->udpSocketFd, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&src_addr), &addrlen);
   if (n < 0) {
     perror("[Link] recvfrom() call failed");
     exit(1);
   }
+  debug("[Link] Received a message with " + std::to_string(n) + " bytes");
+
+  debug("[Link] Converting source address to the type <IP>:<PORT>");
+
+  char ipStr[INET6_ADDRSTRLEN]; // Buffer to hold IP address string
+
+  if (src_addr.ss_family == AF_INET) {
+    struct sockaddr_in *ipv4 = reinterpret_cast<struct sockaddr_in*>(&src_addr);
+    inet_ntop(AF_INET, &(ipv4->sin_addr), ipStr, INET_ADDRSTRLEN);
+    int port = ntohs(ipv4->sin_port);
+    sourceProcess = std::string(ipStr) + ":" + std::to_string(port);
+  } else if (src_addr.ss_family == AF_INET6) {
+    struct sockaddr_in6 *ipv6 = reinterpret_cast<sockaddr_in6*>(&src_addr);
+    inet_ntop(AF_INET6, &(ipv6->sin6_addr), ipStr, INET6_ADDRSTRLEN);
+    int port = ntohs(ipv6->sin6_port);
+    sourceProcess = std::string(ipStr) + ":" + std::to_string(port);
+  } else {
+    // Handle unsupported address family
+    sourceProcess = "Unknown Address Family";
+  }
+  debug("[Link] Source address: `" + sourceProcess + "`");
 
   // Create a std::string from the received data
   std::string receivedData(buffer, static_cast<size_t>(n));

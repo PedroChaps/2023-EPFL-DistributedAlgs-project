@@ -13,6 +13,8 @@
 #define ACK_SIZE 3
 
 #include <set>
+#include <map>
+#include <unordered_map>
 
 // Part of the implementation was taken from my previous Networking project (https://github.com/PedroChaps/RCProj-2022_2023/blob/main/server/GS.c)
 /**
@@ -33,6 +35,22 @@ class PerfectLink : public Link {
    */
   std::set<std::string> receivedPackets;
 
+  /**
+   * Structure that keeps track of messages waiting for an ACK.
+   * It's a map that looks like this:
+   * {
+   *    "<IP1:PORT1>": { "<message1>": <tries1>, "<message2>": <tries2>, ... },
+   *    "<IP2:PORT2>": { "<message1>": <tries1>, "<message2>": <tries2>, ... },
+   *    ...
+   * }
+   * This structure was chosen for some key reasons:
+   * - It maps a target Process to the unACKed messages sent to it, so the address and port are easily accessible;
+   * - It allows to easily and efficiently check if a message has already been sent to a Process;
+   * However, it has the drawback of storing every message sent, which can be a lot of data (could
+   * save an ID that would allow to generate the message).
+   */
+  std::unordered_map<std::string, std::unordered_map<std::string, int>> unAckedMessages;
+
 public:
 
   /**
@@ -52,7 +70,7 @@ public:
    * Receives a message through this Perfect Link.
    * @return The received message.
    */
-  std::string receive() override;
+  std::string receive();
 
   /**
    * Destructor. Was necessary because of some cryptic error.

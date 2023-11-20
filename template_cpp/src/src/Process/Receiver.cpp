@@ -20,7 +20,7 @@ Receiver::Receiver(std::string port, std::string logsPath, std::stringstream *lo
   logsBufferPtr = logsBuffer;
 }
 
-Receiver::Receiver(PerfectLink link, std::string port, std::string logsPath, std::stringstream *logsBuffer) : link( link), port(port), logsPath(logsPath) {
+Receiver::Receiver(PerfectLink link, std::string port, std::string logsPath, std::stringstream *logsBuffer) : link(link), port(port), logsPath(logsPath) {
   logsBufferPtr = logsBuffer;
 }
 
