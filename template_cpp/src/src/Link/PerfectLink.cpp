@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <thread>
 
 #define DEBUG 1
 template <class T>
@@ -21,17 +22,42 @@ void debug(T msg) {
   }
 }
 
+void PerfectLink::async_retransmissor() {
+  debug("[PerfectLink] (retransmissor) Starting retransmissor thread...");
+
+  while (1) {
+
+    debug("[PerfectLink] (retransmissor) Retransmitting unACKed messages...");
+
+    // Iterate over the unAckedMessages and retransmit the messages
+    for (auto& process : unAckedMessages) {
+      for (auto& message : process.second) {
+        debug("[PerfectLink] (retransmissor) Retransmitting message: `" + message.first + "` to process " + process.first);
+        send(message.first, process.first);
+      }
+    }
+
+    usleep(100000); // Sleep for 0.1 seconds
+  }
+}
+
+PerfectLink::PerfectLink(std::string& ownPort) : Link(ownPort) {
+
+
+  std::thread tRetransmissor(&PerfectLink::async_retransmissor, this);
+
+  // Wait for them to finish
+  tRetransmissor.detach();
+
+}
+
 // Override of the `send()` method from the Link class.
 // It sends a message and waits for an ACK. If it doesn't receive an ACK, it retransmits the message.
 void PerfectLink::send(std::string message, std::string targetProcess) {
 
   // Sends the message
   // TODO: change
-  int tries = 0;
-  while (tries < 5) {
-    tries++;
-    Link::send(message, targetProcess);
-  }
+  Link::send(message, targetProcess);
 
   // Put the sent message in the set of messages waiting for an ACK
   if (unAckedMessages.find(targetProcess) == unAckedMessages.end()) {

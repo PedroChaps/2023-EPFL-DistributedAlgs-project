@@ -15,6 +15,7 @@
 #include <set>
 #include <map>
 #include <unordered_map>
+#include <thread>
 
 // Part of the implementation was taken from my previous Networking project (https://github.com/PedroChaps/RCProj-2022_2023/blob/main/server/GS.c)
 /**
@@ -51,6 +52,7 @@ class PerfectLink : public Link {
    */
   std::unordered_map<std::string, std::unordered_map<std::string, int>> unAckedMessages;
 
+
 public:
 
   /**
@@ -63,14 +65,20 @@ public:
    * Constructor for the Perfect Link.
    * @param ownPort The port of this Process.
    */
-  PerfectLink(std::string& ownPort) :
-    Link(ownPort){}
+  PerfectLink(std::string& ownPort);
 
   /**
    * Receives a message through this Perfect Link.
    * @return The received message.
    */
   std::string receive();
+
+  /**
+   * Works in pair with the `unAckedMessages` structure.
+   * Routinely iterates over the structure and retransmits the messages, as they haven't been ACKed.
+   * Will be called asynchronously, so it must be called in a separate thread.
+   */
+  void async_retransmissor();
 
   /**
    * Destructor. Was necessary because of some cryptic error.

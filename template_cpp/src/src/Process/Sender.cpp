@@ -38,7 +38,6 @@ Sender::Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, s
 void Sender::sendBroadcasts() {
 
   for (int i = 1; i <= m; i += 8) {
-
     // Creates a packet which is a batch of 8 messages (or until `m` is reached), and sends it
     std::string message = std::to_string(processId);
     for (int j = i; j <= i + 7 && j <= m; j++) {
@@ -46,6 +45,7 @@ void Sender::sendBroadcasts() {
     }
     for (auto target : targetIpsAndPorts) {
       link.send(message, target);
+      sleep(1);
     }
 
     // Appends to the log variable
