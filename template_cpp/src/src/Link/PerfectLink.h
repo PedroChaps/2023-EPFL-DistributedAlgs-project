@@ -11,11 +11,14 @@
 #define RETRANSMISSION_TIMEOUT 40000 // (1.000.000 microseconds = 1 second; 40.000 microseconds = 0.04 seconds)
 #define ACK_MSG "ACK"
 #define ACK_SIZE 3
+#define MAX_MSGS_IN_FLIGHT 3//000
 
 #include <set>
 #include <map>
 #include <unordered_map>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 // Part of the implementation was taken from my previous Networking project (https://github.com/PedroChaps/RCProj-2022_2023/blob/main/server/GS.c)
 /**
@@ -52,6 +55,9 @@ class PerfectLink : public Link {
    */
   std::unordered_map<std::string, std::unordered_map<std::string, int>> unAckedMessages;
   std::thread tRetransmissor;
+
+  std::mutex mtx;
+  std::unordered_map<std::string, std::condition_variable> cvs;
 
 public:
 

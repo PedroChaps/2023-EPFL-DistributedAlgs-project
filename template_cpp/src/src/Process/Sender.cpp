@@ -45,7 +45,7 @@ void Sender::sendBroadcasts() {
     }
     for (auto target : targetIpsAndPorts) {
       link.send(message, target);
-      sleep(1);
+      //sleep(1);
     }
 
     // Appends to the log variable
@@ -54,7 +54,7 @@ void Sender::sendBroadcasts() {
     }
 
     // Prints a confirmation
-    std::cout << "Sent the message (that got ACKed): `" << message << "`" << std::endl;
+    std::cout << "Sent the message: `" << message << "`" << std::endl;
   }
 
   saveLogs();
