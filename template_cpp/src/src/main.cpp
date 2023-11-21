@@ -133,8 +133,6 @@ std::vector<std::string> parseHostsFile(std::vector<Parser::Host> hosts, unsigne
 
     if (host.id == id) {
       myPort = std::to_string(port);
-      // skip this host as it doesn't make sense to send to itself
-      continue;
     }
     ipsAndPorts.push_back(ip + ":" + std::to_string(port));
   }
