@@ -11,7 +11,7 @@
 #define RETRANSMISSION_TIMEOUT 40000 // (1.000.000 microseconds = 1 second; 40.000 microseconds = 0.04 seconds)
 #define ACK_MSG "ACK"
 #define ACK_SIZE 3
-#define MAX_MSGS_IN_FLIGHT 3//000
+#define MAX_MSGS_IN_FLIGHT 1000
 
 #include <set>
 #include <map>

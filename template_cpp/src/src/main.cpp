@@ -176,8 +176,9 @@ int main(int argc, char **argv) {
   // Proceeds accordingly.
   std::cout << "I am a process!\n\n";
 
-  PerfectLink link(myPort);
-  Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts);
+  // PerfectLink link(myPort);
+  // Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts);
+  Process process(myPort, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts);
   process.doStuff();
 
   std::cout << "My job here is done. Waiting for my termination...\n\n";
