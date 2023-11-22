@@ -33,6 +33,9 @@ class Process {
   std::string myPort;
   int n_messages;
 
+  std::string logsPath;
+  std::stringstream *logsBufferPtr;
+
 public:
 
   /**
@@ -46,7 +49,7 @@ public:
    * @param targetPorts The ports of the receiver Processes.
    */
   // Process(PerfectLink &link, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts);
-  Process(std::string myPort, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts);
+  Process(std::string myPort, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts, std::string logsPath, std::stringstream *logsBuffer);
 
   /**
    * Start doing stuff i.e. sending and receiving messages on both threads.
@@ -54,6 +57,8 @@ public:
   void doStuff();
 
   void doFIFO();
+
+  void saveLogs();
 };
 
 

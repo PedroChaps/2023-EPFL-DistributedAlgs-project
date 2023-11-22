@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include<unistd.h>
+#include <fstream>
 #include "Process.h"
 
 #define DEBUG 1
@@ -20,8 +21,11 @@ void debug(T msg) {
 Process::Process(PerfectLink &link, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts) :
 link(link), tReceiver(link, myPort, logsPath, logsBuffer), tSender(targetIPsAndPorts, myPort, logsPath, logsBuffer, m, nHosts, processId, link), processId(processId), targetIPsAndPorts(targetIPsAndPorts), myPort(myPort), n_messages(m) {}
 */
-Process::Process(std::string myPort, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts) :
-processId(processId), targetIPsAndPorts(targetIPsAndPorts), myPort(myPort), n_messages(m) {}
+Process::Process(std::string myPort, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts, std::string logsPath, std::stringstream *logsBuffer) :
+processId(processId), targetIPsAndPorts(targetIPsAndPorts), myPort(myPort), n_messages(m), logsPath(logsPath) {
+
+    logsBufferPtr = logsBuffer;
+}
 
 
 // Start doing stuff i.e. sending and receiving messages on both threads.
@@ -93,7 +97,14 @@ void Process::doFIFO() {
       message += " " + std::to_string(j);
     }
     uniformBroadcast.doUrbBroadcast(message);
+
+    for (int j = i; j <= i + 7 && j <= n_messages; j++) {
+      (*logsBufferPtr) << "b " << j << std::endl;
+    }
   }
+
+  // Logs the sent messages
+  saveLogs();
 
   debug("[Process] Done sending messages! Going to process them now...");
 
@@ -124,6 +135,8 @@ void Process::doFIFO() {
     }
    ```
    */
+
+  // Comparator used to sort the messages by the first element of the pair
   struct custom_compare {
     // Returns true if a < b
     bool operator() (const std::pair<int, std::string> &a, const std::pair<int, std::string> &b) const {
@@ -154,7 +167,7 @@ void Process::doFIFO() {
     }
 
     // Process the local copy of the shared vector
-    std::cout << "NEW BATCH OF MESSAGES!!" << std::endl;
+    debug("[Receiver] About to process a new batch of " + std::to_string(localCopy.size()) + " messages...");
     for (const std::string& message : localCopy) {
 
       // Split the message. It's of the form "<id> <msg1> <msg2> ... <msg8>"
@@ -181,7 +194,24 @@ void Process::doFIFO() {
 
         messagesToDeliver[id].first += 8;
         // TODO: change delivery to writing to a file
-        std::cout << "Delivered: " << messagesToDeliver[id].second.begin()->second << "from process " << id << std::endl;
+
+        std::string sequenceNumber;
+        std::string sequenceNumbers = messagesToDeliver[id].second.begin()->second;
+
+        std::cout << "About to deliver: " << sequenceNumbers << " from process " << id << std::endl;
+
+        debug("[Receiver] Doing processing...");
+        while (sequenceNumbers.find(' ') != std::string::npos) {
+          sequenceNumber = sequenceNumbers.substr(0, sequenceNumbers.find(' '));
+          sequenceNumbers = sequenceNumbers.substr(sequenceNumbers.find(' ') + 1);
+
+          // Appends to the log variable
+          (*logsBufferPtr) << "d " << id << " " << sequenceNumber << std::endl;
+        }
+
+        // Appends the final number
+        (*logsBufferPtr) << "d " << id << " " << sequenceNumbers << std::endl;
+
         messagesToDeliver[id].second.erase(firstPair);
         firstPair = (messagesToDeliver[id].second.begin());
       }
@@ -192,41 +222,19 @@ void Process::doFIFO() {
         messagesToDeliver.erase(id);
       }
     }
-    // TODO: remove this sleep
     sleep(1);
   }
-};
+}
 
-/*
-I have this custom compare
-```
-  struct custom_compare final {
-    // Returns true if a < b
-    bool operator() (std::pair<int, std::string> &a, std::pair<int, std::string> &b) const {
-      return a.first < b.first;
-    }
-  };
-```
-I use in a set:
-```
-std::set<
-                          std::pair<int, std::string>,
-                          custom_compare
-                          >
-```
-But when I run this code:
-```
-std::string msgs = message.substr(message.find(' ') + 1);
-      int firstMsg = stoi(msgs.substr(0, msgs.find(' ')));
+// After the messages are sent, writes the logs to the output file.
+void Process::saveLogs() {
 
-      // Checks if id exists in the map. If not, creates it.
-      if (messagesToDeliver.find(id) == messagesToDeliver.end()) {
-        messagesToDeliver[id] = std::make_pair(1, std::set<std::pair<int, std::string>, custom_compare>());
-      }
+  std::ofstream logFile;
+  logFile.open(logsPath, std::ios_base::app);
+  logFile << (*logsBufferPtr).str();
 
-      // Adds the message to the map
-      messagesToDeliver[id].second.insert(std::make_pair(firstMsg, msgs));
-```
-I get the error `In template: no matching function for call to object of type 'custom_compare'` in the `.insert(...)`
+  // Clears the buffer
+  (*logsBufferPtr).str("");
 
- */
+  logFile.close();
+}
