@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
   // PerfectLink link(myPort);
   // Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts);
   Process process(myPort, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts);
-  process.doStuff();
+  process.doFIFO();
 
   std::cout << "My job here is done. Waiting for my termination...\n\n";
 

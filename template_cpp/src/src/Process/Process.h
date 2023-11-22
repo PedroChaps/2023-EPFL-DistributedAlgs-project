@@ -52,6 +52,8 @@ public:
    * Start doing stuff i.e. sending and receiving messages on both threads.
    */
   void doStuff();
+
+  void doFIFO();
 };
 
 

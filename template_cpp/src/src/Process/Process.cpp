@@ -73,5 +73,160 @@ void Process::doStuff() {
     }
     sleep(1);
   }
-
 }
+
+
+void Process::doFIFO() {
+
+
+  std::vector<std::string> sharedVector;
+  std::mutex sharedVectorMtx;
+
+  UniformBroadcast uniformBroadcast(std::to_string(processId), targetIPsAndPorts, myPort, sharedVector, sharedVectorMtx);
+
+  // Creates and broadcasts all the messages
+  debug("[Process] Creating and sending messages...");
+  for (int i = 1; i <= n_messages; i += 8) {
+    // Creates a packet which is a batch of 8 messages (or until `m` is reached), and sends it
+    std::string message = std::to_string(processId);
+    for (int j = i; j <= i + 7 && j <= n_messages; j++) {
+      message += " " + std::to_string(j);
+    }
+    uniformBroadcast.doUrbBroadcast(message);
+  }
+
+  debug("[Process] Done sending messages! Going to process them now...");
+
+  // Creates an ugly data structure to store the messages while they are not in order.
+  // I hope the following explanation is good, otherwise I am sorry if you are trying to understand it and cant :(
+  /**
+
+    Creates a structure which purpose is to store the messages while they cannot be delivered in order (eg. some prior messages are still in-flight because of delays).
+    It maps the id of the sender to a list of not-yet-delivered messages.
+    Some additional information is also stored, such as the next "sequence number" to deliver and the first "sequence number" of each message, to make the algorithm simpler.
+    The set is used to keep the messages sorted by the first "sequence number" of each message. To do this, it uses a custom comparator, which compares the first entry of the saved pairs.
+
+    The structure is of the form:
+    ```
+    {
+      <id1>: (<nextMsgToDeliver1>, { (<firstElement1>, <msg1>), (<firstElement2>, <msg2>), ... } ),
+      <id2>: (<nextMsgToDeliver1>, { (<firstElement1>, <msg1>), (<firstElement2>, <msg2>), ... } ),
+        ...
+    }
+   ```
+
+   An example is the following:
+   ```
+   {
+      "1": (9, { (17, "17 18 19 20 21 22 23 24"), (25, "25 26 27 28 29 30 31 32") } ),
+      "2": (17, { (25, "25 26 27 28 29 30 31 32") } ),
+      "3": (1, { } ),
+    }
+   ```
+   */
+  struct custom_compare {
+    // Returns true if a < b
+    bool operator() (const std::pair<int, std::string> &a, const std::pair<int, std::string> &b) const {
+      return a.first < b.first;
+    }
+  };
+
+  std::unordered_map<
+          std::string, std::pair<
+                  int, std::set<
+                          std::pair<int, std::string>,
+                          custom_compare
+                          >
+                  >
+  > messagesToDeliver;
+
+
+  // Periodically consumes the delivered messages
+  while (1) {
+    // Local copy to avoid holding the lock for too long
+    std::vector<std::string> localCopy;
+    {
+      // Acquire the lock before accessing the shared vector
+      std::lock_guard<std::mutex> lock(sharedVectorMtx);
+      localCopy = sharedVector;
+      // Consume the entries
+      sharedVector.clear();
+    }
+
+    // Process the local copy of the shared vector
+    std::cout << "NEW BATCH OF MESSAGES!!" << std::endl;
+    for (const std::string& message : localCopy) {
+
+      // Split the message. It's of the form "<id> <msg1> <msg2> ... <msg8>"
+      std::string id = message.substr(0, message.find(' '));
+      std::string msgs = message.substr(message.find(' ') + 1);
+      int firstMsg = stoi(msgs.substr(0, msgs.find(' ')));
+
+      // Checks if id exists in the map. If not, creates it.
+      if (messagesToDeliver.find(id) == messagesToDeliver.end()) {
+        messagesToDeliver[id] = std::make_pair(1, std::set<std::pair<int, std::string>, custom_compare>(custom_compare{}));
+      }
+
+      // Adds the message to the set (since it's sorted, it will be in the correct position for the next step)
+      messagesToDeliver[id].second.insert(std::make_pair(firstMsg, msgs));
+
+      // Iteratevely goes over the messages and delivers everything it can
+      auto firstPair = (messagesToDeliver[id].second.begin());
+      while (messagesToDeliver[id].first == firstPair->first) {
+        // If the message can be delivered:
+        // - Delivers it
+        // - Increases the next expected sequence number to deliver
+        // - Erases the message from the set
+        // - Updates the firstPair to the newer first element
+
+        messagesToDeliver[id].first += 8;
+        // TODO: change delivery to writing to a file
+        std::cout << "Delivered: " << messagesToDeliver[id].second.begin()->second << "from process " << id << std::endl;
+        messagesToDeliver[id].second.erase(firstPair);
+        firstPair = (messagesToDeliver[id].second.begin());
+      }
+
+      // Checks if all messages have been delivered, by checking if the next number exceeds the limits
+      if (messagesToDeliver[id].first > n_messages) {
+        // If so, deletes the entry from the map
+        messagesToDeliver.erase(id);
+      }
+    }
+    // TODO: remove this sleep
+    sleep(1);
+  }
+};
+
+/*
+I have this custom compare
+```
+  struct custom_compare final {
+    // Returns true if a < b
+    bool operator() (std::pair<int, std::string> &a, std::pair<int, std::string> &b) const {
+      return a.first < b.first;
+    }
+  };
+```
+I use in a set:
+```
+std::set<
+                          std::pair<int, std::string>,
+                          custom_compare
+                          >
+```
+But when I run this code:
+```
+std::string msgs = message.substr(message.find(' ') + 1);
+      int firstMsg = stoi(msgs.substr(0, msgs.find(' ')));
+
+      // Checks if id exists in the map. If not, creates it.
+      if (messagesToDeliver.find(id) == messagesToDeliver.end()) {
+        messagesToDeliver[id] = std::make_pair(1, std::set<std::pair<int, std::string>, custom_compare>());
+      }
+
+      // Adds the message to the map
+      messagesToDeliver[id].second.insert(std::make_pair(firstMsg, msgs));
+```
+I get the error `In template: no matching function for call to object of type 'custom_compare'` in the `.insert(...)`
+
+ */
