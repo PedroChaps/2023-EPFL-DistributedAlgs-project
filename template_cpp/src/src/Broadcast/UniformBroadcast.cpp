@@ -80,8 +80,8 @@ void UniformBroadcast::async_receive_broadcasts() {
       debug("[UniformBroadcast] (receiver) Message was already forwarded!");
     }
 
-    // Checks if the message can be delivered
-    if (acked_msgs[message].size() == targetIpsAndPorts.size() and delivered.find(message) == delivered.end()) {
+    // Checks if the message can be delivered by checking if a majority has ACKed
+    if (acked_msgs[message].size() == targetIpsAndPorts.size()/2 + 1 and delivered.find(message) == delivered.end()) {
       debug("[UniformBroadcast] (receiver) Message can be delivered, delivering...");
 
       // Adds the message to the delivered set

@@ -106,6 +106,12 @@ void Process::doFIFO() {
   // Logs the sent messages
   saveLogs();
 
+  // TODO: remove this
+  // Simulate death of P1
+  if (processId == 1) {
+    // exit(1);
+  }
+
   debug("[Process] Done sending messages! Going to process them now...");
 
   // Creates an ugly data structure to store the messages while they are not in order.
@@ -167,7 +173,7 @@ void Process::doFIFO() {
     }
 
     // Process the local copy of the shared vector
-    debug("[Receiver] About to process a new batch of " + std::to_string(localCopy.size()) + " messages...");
+    // debug("[Receiver] About to process a new batch of " + std::to_string(localCopy.size()) + " messages...");
     for (const std::string& message : localCopy) {
 
       // Split the message. It's of the form "<id> <msg1> <msg2> ... <msg8>"
@@ -222,7 +228,7 @@ void Process::doFIFO() {
         messagesToDeliver.erase(id);
       }
     }
-    sleep(1);
+    // sleep(1);
   }
 }
 
