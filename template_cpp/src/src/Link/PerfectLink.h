@@ -11,7 +11,7 @@
 #define RETRANSMISSION_TIMEOUT 40000 // (1.000.000 microseconds = 1 second; 40.000 microseconds = 0.04 seconds)
 #define ACK_MSG "ACK"
 #define ACK_SIZE 3
-#define MAX_MSGS_IN_FLIGHT 30000
+#define MAX_MSGS_IN_FLIGHT 40000
 
 #include <set>
 #include <map>
@@ -56,7 +56,8 @@ class PerfectLink : public Link {
   std::unordered_map<std::string, std::unordered_map<std::string, int>> unAckedMessages;
   std::thread tRetransmissor;
 
-  std::mutex mtx;
+  std::mutex linkMtx;
+  std::mutex unAckedMsgsMtx;
   std::unordered_map<std::string, std::condition_variable> cvs;
 
 public:
@@ -90,8 +91,10 @@ public:
    * Destructor. Was necessary because of some cryptic error.
    */
   virtual ~PerfectLink() = default;
+
 };
 
+void printNestedMap(const std::unordered_map<std::string, std::unordered_map<std::string, int>>& nestedMap);
 
 #endif //DA_PROJECT_PERFECTLINK_H
 

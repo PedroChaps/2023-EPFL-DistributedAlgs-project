@@ -4,15 +4,33 @@
 
 #include <iostream>
 #include "UniformBroadcast.h"
+#include <chrono>
+#include <ctime>
+#include <iostream>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
 
 #define DEBUG 1
 template <class T>
 void debug(T msg) {
+
+  auto now = std::chrono::system_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          now.time_since_epoch()
+  ).count();
+
+  auto time = std::chrono::system_clock::to_time_t(now);
+  auto localTime = *std::localtime(&time);
+
+  std::stringstream ss;
+  ss << std::put_time(&localTime, "%F %T");
+  ss << '.' << std::setfill('0') << std::setw(3) << ms % 1000; // Add milliseconds
+
   if (DEBUG) {
-    std::cout << msg << std::endl;
+    std::cout << ss.str() << msg << std::endl;
   }
 }
-
 
 UniformBroadcast::UniformBroadcast(std::string id, std::vector<std::string> targetIpsAndPorts, std::string port, std::vector<std::string> &sharedVector, std::mutex &sharedVectorMtx) :
         id(id), targetIpsAndPorts(targetIpsAndPorts), link(PerfectLink(port)), sharedVector(sharedVector), sharedVectorMtx(sharedVectorMtx) {
@@ -51,15 +69,19 @@ void UniformBroadcast::async_receive_broadcasts() {
 
   while (1) {
 
-    debug("[UniformBroadcast] (receiver) Waiting for a message...");
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+    debug("[UniformBroadcast] (receiver) Waiting for a message... Wasn't reading the Link until now");
     // Receive a message through the link.
     // Can be empty if the message is trash (eg. was an ACK, was already received, ...)
     std::string idAndMessage = link.receive();
+    debug("[UniformBroadcast] (receiver) Got one!");
     if (idAndMessage.empty()) {
+      debug("[UniformBroadcast] (receiver) It was trash :(");
       continue;
     }
 
-    debug("[UniformBroadcast] (receiver) Got one! Extracting stuff...");
+    debug("[UniformBroadcast] (receiver) Extracting stuff... Will be away from reading for a while");
     // The message is in the format: `<p_i>,<p_j>,<msg>`
     std::string p_i = idAndMessage.substr(0, idAndMessage.find(','));
     std::string p_j = idAndMessage.substr(idAndMessage.find(',') + 1, idAndMessage.find(',', idAndMessage.find(',') + 1) - idAndMessage.find(',') - 1);
@@ -81,7 +103,7 @@ void UniformBroadcast::async_receive_broadcasts() {
     }
 
     // Checks if the message can be delivered by checking if a majority has ACKed
-    if (acked_msgs[message].size() == targetIpsAndPorts.size()/2 + 1 and delivered.find(message) == delivered.end()) {
+    if (acked_msgs[message].size() >= targetIpsAndPorts.size()/2 + 1 and delivered.find(message) == delivered.end()) {
       debug("[UniformBroadcast] (receiver) Message can be delivered, delivering...");
 
       // Adds the message to the delivered set
@@ -89,12 +111,15 @@ void UniformBroadcast::async_receive_broadcasts() {
 
       // Delivers the message
       {
+        debug("[Process] Waiting for the Mutex for the shared Vector");
         std::unique_lock<std::mutex> lock(sharedVectorMtx);
+        debug("[Process] Locked the Mutex for the shared Vector");
         sharedVector.push_back(message);
         debug("[UniformBroadcast] (receiver) Message delivered (ie. appended to the vector): `" + message + "`");
       }
+      debug("[Process] Unlocked the Mutex for the shared Vector");
     } else {
-      debug("[UniformBroadcast] (receiver) Message can't be delivered yet, as acked_msgs.size() = " + std::to_string(acked_msgs[message].size()) + ", and targetIpsAndPorts.size() = " + std::to_string(targetIpsAndPorts.size()) + " and delivered.find(message) == delivered.end() is " + std::to_string(static_cast<int>(delivered.find(message) == delivered.end())));
+      debug("[UniformBroadcast] (receiver) Message `" + message +  "` can't be delivered yet, as acked_msgs.size() = " + std::to_string(acked_msgs[message].size()) + ", and targetIpsAndPorts.size() = " + std::to_string(targetIpsAndPorts.size()) + " and delivered.find(message) == delivered.end() is " + std::to_string(static_cast<int>(delivered.find(message) == delivered.end())));
     }
 
   }

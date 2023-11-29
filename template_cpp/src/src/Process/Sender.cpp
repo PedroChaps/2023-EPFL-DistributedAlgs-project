@@ -12,14 +12,31 @@
 #include <condition_variable>
 #include <atomic>
 #include<unistd.h>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
 
 #define DEBUG 1
 template <class T>
 void debug(T msg) {
+
+  auto now = std::chrono::system_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          now.time_since_epoch()
+  ).count();
+
+  auto time = std::chrono::system_clock::to_time_t(now);
+  auto localTime = *std::localtime(&time);
+
+  std::stringstream ss;
+  ss << std::put_time(&localTime, "%F %T");
+  ss << '.' << std::setfill('0') << std::setw(3) << ms % 1000; // Add milliseconds
+
   if (DEBUG) {
-    std::cout << msg << std::endl;
+    std::cout << ss.str() << msg << std::endl;
   }
 }
+
 
 // Constructor for a receiver Link.
 /*Sender::Sender(std::vector<std::string> targetIpsAndPorts, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId) :

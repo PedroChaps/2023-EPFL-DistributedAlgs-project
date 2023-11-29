@@ -9,14 +9,31 @@
 #include "Process/Sender.h"
 #include "Process/Process.h"
 #include "Link/PerfectLink.h"
+#include <iomanip>
+#include <chrono>
+#include <ctime>
 
 #define DEBUG 1
 template <class T>
 void debug(T msg) {
+
+  auto now = std::chrono::system_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          now.time_since_epoch()
+  ).count();
+
+  auto time = std::chrono::system_clock::to_time_t(now);
+  auto localTime = *std::localtime(&time);
+
+  std::stringstream ss;
+  ss << std::put_time(&localTime, "%F %T");
+  ss << '.' << std::setfill('0') << std::setw(3) << ms % 1000; // Add milliseconds
+
   if (DEBUG) {
-    std::cout << msg << std::endl;
+    std::cout << ss.str() << msg << std::endl;
   }
 }
+
 
 // Global variables are necessary for writting in the logs in case of a signal
 std::stringstream logsBuffer;
@@ -175,6 +192,8 @@ int main(int argc, char **argv) {
   // Based on the config file's id, we know if this process is a sender or a receiver.
   // Proceeds accordingly.
   std::cout << "I am a process!\n\n";
+
+  // sleep(30);
 
   // PerfectLink link(myPort);
   // Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts);

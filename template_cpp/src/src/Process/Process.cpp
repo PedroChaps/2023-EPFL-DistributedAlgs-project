@@ -6,14 +6,31 @@
 #include<unistd.h>
 #include <fstream>
 #include "Process.h"
+#include <iomanip>
+#include <chrono>
+#include <ctime>
 
 #define DEBUG 1
 template <class T>
 void debug(T msg) {
+
+  auto now = std::chrono::system_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          now.time_since_epoch()
+  ).count();
+
+  auto time = std::chrono::system_clock::to_time_t(now);
+  auto localTime = *std::localtime(&time);
+
+  std::stringstream ss;
+  ss << std::put_time(&localTime, "%F %T");
+  ss << '.' << std::setfill('0') << std::setw(3) << ms % 1000; // Add milliseconds
+
   if (DEBUG) {
-    std::cout << msg << std::endl;
+    std::cout << ss.str() << msg << std::endl;
   }
 }
+
 
 
 // Constructor
@@ -65,10 +82,13 @@ void Process::doStuff() {
     std::vector<std::string> localCopy; // Local copy to avoid holding the lock for too long
     {
       // Acquire the lock before accessing the shared vector
+      debug("[Process] Waiting for the Mutex");
       std::lock_guard<std::mutex> lock(sharedVectorMtx);
+      debug("[Process] Locked the Mutex");
       localCopy = sharedVector;
       sharedVector.clear(); // Consume the entries
     }
+    debug("[Process] Unlocked the Mutex");
     // Process the local copy of the shared vector
     std::cout << "NEW BATCH OF MESSAGES!!" << std::endl;
     for (const std::string& data : localCopy) {
@@ -166,15 +186,19 @@ void Process::doFIFO() {
     std::vector<std::string> localCopy;
     {
       // Acquire the lock before accessing the shared vector
+      // debug("[Process] Waiting for the Mutex for the shared Vector");
       std::lock_guard<std::mutex> lock(sharedVectorMtx);
+      // debug("[Process] Locked the Mutex for the shared Vector");
       localCopy = sharedVector;
       // Consume the entries
       sharedVector.clear();
     }
+    // debug("[Process] Unlocked the Mutex for the shared Vector");
 
     // Process the local copy of the shared vector
-    // debug("[Receiver] About to process a new batch of " + std::to_string(localCopy.size()) + " messages...");
     for (const std::string& message : localCopy) {
+
+      debug("[Receiver] About to process a new batch of " + std::to_string(localCopy.size()) + " messages...");
 
       // Split the message. It's of the form "<id> <msg1> <msg2> ... <msg8>"
       std::string id = message.substr(0, message.find(' '));
@@ -204,7 +228,7 @@ void Process::doFIFO() {
         std::string sequenceNumber;
         std::string sequenceNumbers = messagesToDeliver[id].second.begin()->second;
 
-        std::cout << "About to deliver: " << sequenceNumbers << " from process " << id << std::endl;
+        std::cout << "About to deliver: `" << sequenceNumbers << "` from process " << id << std::endl;
 
         debug("[Receiver] Doing processing...");
         while (sequenceNumbers.find(' ') != std::string::npos) {
@@ -218,6 +242,8 @@ void Process::doFIFO() {
         // Appends the final number
         (*logsBufferPtr) << "d " << id << " " << sequenceNumbers << std::endl;
 
+        debug("[Receiver] Done some processing. `*logsBufferPtr` now has some more content");
+
         messagesToDeliver[id].second.erase(firstPair);
         firstPair = (messagesToDeliver[id].second.begin());
       }
@@ -228,6 +254,7 @@ void Process::doFIFO() {
         messagesToDeliver.erase(id);
       }
     }
+    // saveLogs();
     // sleep(1);
   }
 }

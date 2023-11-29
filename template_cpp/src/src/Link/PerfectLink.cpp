@@ -13,13 +13,42 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <thread>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
 
 #define DEBUG 1
 template <class T>
 void debug(T msg) {
+
+  auto now = std::chrono::system_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          now.time_since_epoch()
+  ).count();
+
+  auto time = std::chrono::system_clock::to_time_t(now);
+  auto localTime = *std::localtime(&time);
+
+  std::stringstream ss;
+  ss << std::put_time(&localTime, "%F %T");
+  ss << '.' << std::setfill('0') << std::setw(3) << ms % 1000; // Add milliseconds
+
   if (DEBUG) {
-    std::cout << msg << std::endl;
+    std::cout << ss.str() << msg << std::endl;
   }
+}
+
+
+void printNestedMap(const std::unordered_map<std::string, std::unordered_map<std::string, int>>& nestedMap) {
+  std::cout << "{\n";
+  for (const auto& outerPair : nestedMap) {
+    std::cout << "    \"" << outerPair.first << "\": { ";
+    for (const auto& innerPair : outerPair.second) {
+      std::cout << "(\"" << innerPair.first << "\", " << innerPair.second << "), ";
+    }
+    std::cout << "},\n";
+  }
+  std::cout << "}\n";
 }
 
 void PerfectLink::async_retransmissor() {
@@ -30,10 +59,15 @@ void PerfectLink::async_retransmissor() {
     debug("[PerfectLink] (retransmissor) Retransmitting unACKed messages...");
 
     // Iterate over the unAckedMessages and retransmit the messages
-    for (auto& process : unAckedMessages) {
-      for (auto& message : process.second) {
-        debug("[PerfectLink] (retransmissor) Retransmitting message: `" + message.first + "` to process " + process.first);
-        Link::send(message.first, process.first);
+    {
+      std::unique_lock<std::mutex> unAckedMsgsLock(unAckedMsgsMtx);
+      printNestedMap(unAckedMessages);
+      for (auto &process: unAckedMessages) {
+        for (auto &message: process.second) {
+          debug("[PerfectLink] (retransmissor) Retransmitting message: `" + message.first + "` to process " +
+                process.first);
+          Link::send(message.first, process.first);
+        }
       }
     }
 
@@ -67,10 +101,11 @@ void PerfectLink::send(std::string message, std::string targetProcess) {
   // Creates block for the critical section
   {
     debug("[PerfectLink] Locking mutex to send message `" + message + "` to process " + targetProcess + "...");
-    std::unique_lock<std::mutex> lock(mtx);
+    std::unique_lock<std::mutex> linkLock(linkMtx);
+    debug("[PerfectLink] Locked the mutex");
 
     // Checks how many messages are "in-flight" to the target Process and waits if there are too many
-    cvs[targetProcess].wait(lock, [this, targetProcess]{
+    cvs[targetProcess].wait(linkLock, [this, targetProcess]{
       return unAckedMessages.find(targetProcess) == unAckedMessages.end() ||
              unAckedMessages[targetProcess].size() < MAX_MSGS_IN_FLIGHT;
     });
@@ -79,12 +114,20 @@ void PerfectLink::send(std::string message, std::string targetProcess) {
     // Sends the message
     Link::send(message, targetProcess);
 
+    debug("[PerfectLink] Message `" + message + "` successfully sent to process " + targetProcess + "...");
+
     // Put the sent message in the set of messages waiting for an ACK
-    if (unAckedMessages.find(targetProcess) == unAckedMessages.end()) {
-      unAckedMessages[targetProcess] = std::unordered_map<std::string, int>();
+    {
+      debug("[PerfectLink] Locking mutex to add message `" + message + "` to the unAckedMessages set for process " + targetProcess + "...");
+      std::unique_lock<std::mutex> unAckedMsgsLock(unAckedMsgsMtx);
+      if (unAckedMessages.find(targetProcess) == unAckedMessages.end()) {
+        unAckedMessages[targetProcess] = std::unordered_map<std::string, int>();
+      }
+      unAckedMessages[targetProcess][message] = 0;
     }
-    unAckedMessages[targetProcess][message] = 0;
+    debug("[PerfectLink] Message `" + message + "` added to the unAckedMessages set for process " + targetProcess + "...");
   }
+  debug("[PerfectLink] Unlocked the mutex");
 
   // Just returns, as the ACK will be received and treated asynchronously (or not received and the message retransmitted)
 }
@@ -110,14 +153,17 @@ std::string PerfectLink::receive() {
     // Creates a block for the critical section
     {
       debug("[PerfectLink] Locking mutex to maybe erase...");
-      std::unique_lock<std::mutex> lock(mtx);
+      std::unique_lock<std::mutex> linkLock(linkMtx);
 
       // Removes the ACK from the unAckedMessages.
       std::string message = receivedData.substr(4);
-      if (unAckedMessages.find(sourceProcess) != unAckedMessages.end()) {
-        if (unAckedMessages[sourceProcess].find(message) != unAckedMessages[sourceProcess].end()) {
-          unAckedMessages[sourceProcess].erase(message);
-          erased = true;
+      {
+        std::unique_lock<std::mutex> unAckedMsgsLock(unAckedMsgsMtx);
+        if (unAckedMessages.find(sourceProcess) != unAckedMessages.end()) {
+          if (unAckedMessages[sourceProcess].find(message) != unAckedMessages[sourceProcess].end()) {
+            unAckedMessages[sourceProcess].erase(message);
+            erased = true;
+          }
         }
       }
     }
