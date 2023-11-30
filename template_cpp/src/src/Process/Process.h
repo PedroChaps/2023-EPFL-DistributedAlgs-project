@@ -36,6 +36,12 @@ class Process {
   std::string logsPath;
   std::stringstream *logsBufferPtr;
 
+  std::mutex bufferMtx;
+  std::condition_variable bufferCv;
+
+  int round;
+
+  void async_sendBroadcastsInRounds(UniformBroadcast &uniformBroadcast);
 public:
 
   /**

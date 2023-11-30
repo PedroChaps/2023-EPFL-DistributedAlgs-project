@@ -10,7 +10,7 @@
 #include <chrono>
 #include <ctime>
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
 
@@ -42,6 +42,7 @@ Process::Process(std::string myPort, int m, int nHosts, int processId, std::vect
 processId(processId), targetIPsAndPorts(targetIPsAndPorts), myPort(myPort), n_messages(m), logsPath(logsPath) {
 
     logsBufferPtr = logsBuffer;
+    round = 0;
 }
 
 
@@ -99,40 +100,58 @@ void Process::doStuff() {
   }
 }
 
+void Process::async_sendBroadcastsInRounds(UniformBroadcast &uniformBroadcast) {
+
+  // Creates and broadcasts all the messages
+  debug("[Process] (sender) Creating and sending messages...");
+  int i = 1;
+  int lastBroadcastedRound = -1;
+
+  while (1) {
+    // TODO: remove
+    //std::cout << "Round: " << round << std::endl;
+    //std::cout << "i: " << i << std::endl;
+    //std::cout << "n_messages: " << n_messages << std::endl;
+    //std::cout << "lastBroadcastedRound: " << lastBroadcastedRound << std::endl;
+    if (i > n_messages) {
+      break;
+    }
+    {
+      std::unique_lock<std::mutex> lock(bufferMtx);
+      bufferCv.wait(lock, [this, i, lastBroadcastedRound] {
+        return i <= n_messages and lastBroadcastedRound < round;
+      });
+      // Creates a packet which is a batch of 8 messages (or until `m` is reached), and sends it
+      debug("[Process] (sender) Creating a new batch of messages with i = " + std::to_string(i));
+      std::string message = std::to_string(processId);
+
+      for (int j = i; j <= i + 7 && j <= n_messages; j++) {
+        message += " " + std::to_string(j);
+        (*logsBufferPtr) << "b " << j << std::endl;
+      }
+
+      uniformBroadcast.doUrbBroadcast(message);
+      i += 8;
+      lastBroadcastedRound++;
+    }
+    // TODO: remove this sleep
+    // sleep(1);
+  }
+
+  debug("[Process] (sender) Done sending messages! I can relax :D");
+}
 
 void Process::doFIFO() {
-
 
   std::vector<std::string> sharedVector;
   std::mutex sharedVectorMtx;
 
   UniformBroadcast uniformBroadcast(std::to_string(processId), targetIPsAndPorts, myPort, sharedVector, sharedVectorMtx);
 
-  // Creates and broadcasts all the messages
-  debug("[Process] Creating and sending messages...");
-  for (int i = 1; i <= n_messages; i += 8) {
-    // Creates a packet which is a batch of 8 messages (or until `m` is reached), and sends it
-    std::string message = std::to_string(processId);
-    for (int j = i; j <= i + 7 && j <= n_messages; j++) {
-      message += " " + std::to_string(j);
-    }
-    uniformBroadcast.doUrbBroadcast(message);
-
-    for (int j = i; j <= i + 7 && j <= n_messages; j++) {
-      (*logsBufferPtr) << "b " << j << std::endl;
-    }
-  }
+  std::thread tReceiverThread(&Process::async_sendBroadcastsInRounds, this, std::ref(uniformBroadcast));
 
   // Logs the sent messages
   saveLogs();
-
-  // TODO: remove this
-  // Simulate death of P1
-  if (processId == 1) {
-    // exit(1);
-  }
-
-  debug("[Process] Done sending messages! Going to process them now...");
 
   // Creates an ugly data structure to store the messages while they are not in order.
   // I hope the following explanation is good, otherwise I am sorry if you are trying to understand it and cant :(
@@ -222,6 +241,9 @@ void Process::doFIFO() {
         // - Erases the message from the set
         // - Updates the firstPair to the newer first element
 
+        round = std::max(round, firstPair->first / 8 + 1);
+        debug("[Receiver] Round: " + std::to_string(round));
+
         messagesToDeliver[id].first += 8;
         // TODO: change delivery to writing to a file
 
@@ -231,17 +253,21 @@ void Process::doFIFO() {
         std::cout << "About to deliver: `" << sequenceNumbers << "` from process " << id << std::endl;
 
         debug("[Receiver] Doing processing...");
-        while (sequenceNumbers.find(' ') != std::string::npos) {
-          sequenceNumber = sequenceNumbers.substr(0, sequenceNumbers.find(' '));
-          sequenceNumbers = sequenceNumbers.substr(sequenceNumbers.find(' ') + 1);
+        {
+          std::lock_guard<std::mutex> lock(bufferMtx);
+          while (sequenceNumbers.find(' ') != std::string::npos) {
+            sequenceNumber = sequenceNumbers.substr(0, sequenceNumbers.find(' '));
+            sequenceNumbers = sequenceNumbers.substr(sequenceNumbers.find(' ') + 1);
 
-          // Appends to the log variable
-          (*logsBufferPtr) << "d " << id << " " << sequenceNumber << std::endl;
+            // Appends to the log variable
+            (*logsBufferPtr) << "d " << id << " " << sequenceNumber << std::endl;
+          }
+
+          // Appends the final number
+          (*logsBufferPtr) << "d " << id << " " << sequenceNumbers << std::endl;
         }
-
-        // Appends the final number
-        (*logsBufferPtr) << "d " << id << " " << sequenceNumbers << std::endl;
-
+        // Every time something is delivered, notifies the other thread, so it can check if it can send more messages
+        bufferCv.notify_all();
         debug("[Receiver] Done some processing. `*logsBufferPtr` now has some more content");
 
         messagesToDeliver[id].second.erase(firstPair);

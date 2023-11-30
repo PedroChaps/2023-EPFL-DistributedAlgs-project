@@ -13,7 +13,7 @@
 #include <chrono>
 #include <ctime>
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
 

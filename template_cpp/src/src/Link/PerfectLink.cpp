@@ -17,7 +17,7 @@
 #include <chrono>
 #include <ctime>
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
 
@@ -71,7 +71,8 @@ void PerfectLink::async_retransmissor() {
       }
     }
 
-    usleep(1000000); // Sleep for 0.1 seconds
+    //usleep(1000000); // Sleep for 0.1 seconds
+    usleep(1500000); // Sleep for 0.15s
   }
 }
 
