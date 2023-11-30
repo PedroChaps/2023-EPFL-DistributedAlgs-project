@@ -31,13 +31,7 @@ void debug(T msg) {
   }
 }
 
-
-
 // Constructor
-/*
-Process::Process(PerfectLink &link, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts) :
-link(link), tReceiver(link, myPort, logsPath, logsBuffer), tSender(targetIPsAndPorts, myPort, logsPath, logsBuffer, m, nHosts, processId, link), processId(processId), targetIPsAndPorts(targetIPsAndPorts), myPort(myPort), n_messages(m) {}
-*/
 Process::Process(std::string myPort, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts, std::string logsPath, std::stringstream *logsBuffer) :
 processId(processId), targetIPsAndPorts(targetIPsAndPorts), myPort(myPort), n_messages(m), logsPath(logsPath) {
 
@@ -45,60 +39,6 @@ processId(processId), targetIPsAndPorts(targetIPsAndPorts), myPort(myPort), n_me
     round = 0;
 }
 
-
-// Start doing stuff i.e. sending and receiving messages on both threads.
-void Process::doStuff() {
-
-/*  // Create the threads to unlock communication
-  std::thread tReceiverThread(&Receiver::receiveBroadcasts, &tReceiver);
-  std::thread tSenderThread(&Sender::sendBroadcasts, &tSender);
-
-  // Wait for them to finish
-  tSenderThread.join();
-  tReceiverThread.join();*/
-
-  // TODO: put this stuff in the FIFO
-
-  std::vector<std::string> sharedVector;
-  std::mutex sharedVectorMtx;
-
-  UniformBroadcast uniformBroadcast(std::to_string(processId), targetIPsAndPorts, myPort, sharedVector, sharedVectorMtx);
-
-  // Creates and broadcasts all the messages
-  debug("[Process] Creating and sending messages...");
-  for (int i = 1; i <= n_messages; i += 8) {
-    // Creates a packet which is a batch of 8 messages (or until `m` is reached), and sends it
-    std::string message = std::to_string(processId);
-    for (int j = i; j <= i + 7 && j <= n_messages; j++) {
-      message += " " + std::to_string(j);
-    }
-    uniformBroadcast.doUrbBroadcast(message);
-  }
-
-  debug("[Process] Done sending messages! Gonna process them now...");
-
-  // Periodically consumes the delivered messages
-  // TODO: change this, only checking if code was written well
-  while (1) {
-    std::vector<std::string> localCopy; // Local copy to avoid holding the lock for too long
-    {
-      // Acquire the lock before accessing the shared vector
-      debug("[Process] Waiting for the Mutex");
-      std::lock_guard<std::mutex> lock(sharedVectorMtx);
-      debug("[Process] Locked the Mutex");
-      localCopy = sharedVector;
-      sharedVector.clear(); // Consume the entries
-    }
-    debug("[Process] Unlocked the Mutex");
-    // Process the local copy of the shared vector
-    std::cout << "NEW BATCH OF MESSAGES!!" << std::endl;
-    for (const std::string& data : localCopy) {
-      // Process data
-      std::cout << "Received: " << data << std::endl;
-    }
-    sleep(1);
-  }
-}
 
 void Process::async_sendBroadcastsInRounds(UniformBroadcast &uniformBroadcast) {
 
@@ -108,11 +48,6 @@ void Process::async_sendBroadcastsInRounds(UniformBroadcast &uniformBroadcast) {
   int lastBroadcastedRound = -1;
 
   while (1) {
-    // TODO: remove
-    //std::cout << "Round: " << round << std::endl;
-    //std::cout << "i: " << i << std::endl;
-    //std::cout << "n_messages: " << n_messages << std::endl;
-    //std::cout << "lastBroadcastedRound: " << lastBroadcastedRound << std::endl;
     if (i > n_messages) {
       break;
     }
@@ -132,14 +67,17 @@ void Process::async_sendBroadcastsInRounds(UniformBroadcast &uniformBroadcast) {
 
       uniformBroadcast.doUrbBroadcast(message);
       i += 8;
+      // Periodically saves the logs
+      if (i % 2400 == 0) {
+        saveLogs();
+      }
       lastBroadcastedRound++;
     }
-    // TODO: remove this sleep
-    // sleep(1);
   }
 
   debug("[Process] (sender) Done sending messages! I can relax :D");
 }
+
 
 void Process::doFIFO() {
 
@@ -245,12 +183,11 @@ void Process::doFIFO() {
         debug("[Receiver] Round: " + std::to_string(round));
 
         messagesToDeliver[id].first += 8;
-        // TODO: change delivery to writing to a file
 
         std::string sequenceNumber;
         std::string sequenceNumbers = messagesToDeliver[id].second.begin()->second;
 
-        std::cout << "About to deliver: `" << sequenceNumbers << "` from process " << id << std::endl;
+        // std::cout << "About to deliver: `" << sequenceNumbers << "` from process " << id << std::endl;
 
         debug("[Receiver] Doing processing...");
         {
@@ -280,8 +217,6 @@ void Process::doFIFO() {
         messagesToDeliver.erase(id);
       }
     }
-    // saveLogs();
-    // sleep(1);
   }
 }
 

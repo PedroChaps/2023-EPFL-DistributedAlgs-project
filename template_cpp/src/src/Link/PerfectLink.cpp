@@ -61,7 +61,7 @@ void PerfectLink::async_retransmissor() {
     // Iterate over the unAckedMessages and retransmit the messages
     {
       std::unique_lock<std::mutex> unAckedMsgsLock(unAckedMsgsMtx);
-      printNestedMap(unAckedMessages);
+      //printNestedMap(unAckedMessages);
       for (auto &process: unAckedMessages) {
         for (auto &message: process.second) {
           debug("[PerfectLink] (retransmissor) Retransmitting message: `" + message.first + "` to process " +
