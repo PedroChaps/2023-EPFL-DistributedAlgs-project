@@ -1,3 +1,13 @@
 __pycache__/
 template_cpp/.idea/
 template_cpp/cmake-build-debug/
+stress.py
+validate_fifo.py
+template_cpp/src/CMakeLists.txt
+example/**
+template_cpp/*.sh
+template_cpp/*.txt
+**.py
+logs/
+tools/stress**
+
