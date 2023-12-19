@@ -64,6 +64,8 @@ public:
 
   void doFIFO();
 
+  void doLatticeAgreement();
+
   void saveLogs();
 };
 

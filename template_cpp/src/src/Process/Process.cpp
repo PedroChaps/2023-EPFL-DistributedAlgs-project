@@ -220,6 +220,25 @@ void Process::doFIFO() {
   }
 }
 
+
+//TODO: somehow use this:
+//*
+// * The id of the last delivered run.
+// * They need to be delivered in order, so this variable helps with that.
+//
+//int last_delivered_run = -1;
+//
+//*
+// * The messages that need to be delivered.
+// * They are of the form `<nr1>,<nr2>,...,<nrN>`.
+// * They are stored in a vector of pairs, where the first element is the run id,
+// *  so it facilitates the ordering.
+//
+//std::vector<std::pair<int, std::string>> messages_to_deliver;
+void Process::doLatticeAgreement() {
+
+};
+
 // After the messages are sent, writes the logs to the output file.
 void Process::saveLogs() {
 
