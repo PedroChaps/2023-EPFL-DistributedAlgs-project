@@ -7,6 +7,7 @@
 
 #include <set>
 #include <string>
+#include <deque>
 #include "../Link/PerfectLink.h"
 
 /**
@@ -32,12 +33,14 @@
  */
 class LatticeAgreement {
 
+  // Pseudo-algorithm variables
   std::vector<bool> active;
+  std::vector<std::mutex> activeMtx;
   std::vector<int> ackCount;
   std::vector<int> nackCount;
-  std::vector<int> activeRound;
+  std::vector<int> activeProposalNumber;
   std::vector<std::set<int>> myProposedSet;
-  std::mutex myProposedSetMtx;
+  std::mutex myProposedSetMtx; // FIXME: maybe not needed. Remove later
   std::vector<std::set<int>> acceptedSet;
 
   /**
@@ -52,9 +55,17 @@ class LatticeAgreement {
   std::string id;
 
   /**
-   * The IP addresses and ports of all the hosts in the system.
+   * The IP addresses and ports of all the hosts in the system, mapped by their Id.
    */
-  std::vector<std::string> targetIpsAndPorts;
+  std::unordered_map<std::string,std::string> idToIpAndPort;
+
+  /**
+   * The number of processes and the maximum number of faulty ones in the system.
+   */
+  int nrProcesses;
+  int f;
+
+  int n_proposals;
 
   /**
    * The link used to communicate. Uses the port received as an argument.
@@ -62,13 +73,16 @@ class LatticeAgreement {
   PerfectLink link;
 
   /**
-   * The thread that will receive messages.
+   * The threads that will receive and send messages.
    */
   std::thread tReceiver;
+  std::thread tSender;
 
   /**
    * The vector that will be shared with the main thread to periodically write
    *  messages to be delivered.
+   * Messages will be of the form `<runId> <nr1>,<nr2>,...,<nrN>` (the run id is
+   *  necessary to order the deliveries).
    */
   std::vector<std::string> &sharedMsgsToDeliver;
   std::mutex &sharedMsgsToDeliverMtx;
@@ -78,14 +92,14 @@ class LatticeAgreement {
    * So, to make the algorithm more efficient, messages are not sent as soon as
    * requested. Instead, they are buffered and sent in batches of maximum 8 msgs.
    * For that, two vectors are used as buffers:
-   * - `nackMessagesToBroadcast` contains the messages to send because of a NACK.
+   * - `ackNackMessagesToSend` contains the messages to send because of an ACK or a NACK. The target id is put in the beginning of the string.
    *    This have a higher priority and thus will be consumed first (as it
    *    minimizes the number of active runs).
    * - `newMessagesToBroadcast` contains the messages originated from a new run.
    */
-  std::vector<std::string> nackMessagesToBroadcast;
-  std::mutex nackMsgsToBroadcastMtx;
-  std::vector<std::string> &newMessagesToBroadcast;
+  std::deque<std::string> ackNackMessagesToSend;
+  std::mutex ackNackMessagesToSendMtx;
+  std::deque<std::string> &newMessagesToBroadcast;
   std::mutex &newMsgsToBroadcastMtx;
 
   /**
@@ -103,6 +117,15 @@ class LatticeAgreement {
    * @return the string representation of the set (form `<nr1>,<nr2>,...,<nrN>`).
    */
   std::string setToString(const std::set<int>& set);
+
+  /**
+ * Transforms a set of integers into a string in a easier format to be delivered.
+ * The string is of the form `<nr1> <nr2> ... <nrN>`.
+ * Used when sending a proposal.
+ * @param set the set to transform.
+ * @return the string representation of the set (form `<nr1> <nr2> ... <nrN>`).
+ */
+  std::string setToStringDeliveryFormat(const std::set<int>& set);
 
   /**
    * Transforms a string of the form `<nr1>,<nr2>,...,<nrN>` into a set of integers.
@@ -128,23 +151,39 @@ class LatticeAgreement {
    * Processes a received ACK.
    * @param runId the id of the run.
    * @param processId the id of the process that sent the ACK.
-   * @param roundId the id of the round in which the ACK was sent.
+   * @param proposalNumber_str the id of the round in which the ACK was sent.
    */
-  void processAck(std::string runId, std::string processId, std::string roundId);
+  void processAck(std::string runId, std::string processId, std::string proposalNumber_str);
 
   /**
    * Processes a received NACK.
    * @param runId the id of the run.
    * @param processId the id of the process that sent the NACK.
-   * @param roundId the id of the round in which the NACK was sent.
+   * @param proposalNumber_str the id of the round in which the NACK was sent.
    * @param proposedSet the set of values proposed by the process.
    */
-  void processNack(std::string runId, std::string processId, std::string roundId, std::string proposedSet);
+  void processNack(std::string runId, std::string processId, std::string proposalNumber_str, std::string proposedSet);
 
   /**
    * After receiveing a nack/ack, checks for nack/ack conditions (lines 19-26 of pseudocode)
    */
-  void doNacksAndAcksChecks();
+  void doNacksAndAcksChecks(std::string runId);
+
+  /**
+   * Puts a message in the buffer to be sent (so it can be sent in batches of 8).
+   * It has the form `send <targetId>|<msg>`.
+   * @param targetId the id of the target process.
+   * @param msg the message to send.
+   */
+  void enqueueToSend(std::string targetId, std::string msg);
+
+  /**
+   * Puts a message in the buffer to be broadcasted (so it can be sent in batches of 8).
+   * It has the form `broadcast|<msg>`.
+   * @param msg the message to broadcast.
+   */
+  void enqueueToBroadcast(std::string msg);
+
 
 
 public:
@@ -154,14 +193,14 @@ public:
   /**
    * Constructor.
    * @param id The id of this process.
-   * @param targetIpsAndPorts The IP addresses and ports of all the hosts in the system.
+   * @param idToIpAndPort The IP addresses and ports of all the hosts in the system.
    * @param port The port used to communicate, needed to create a Link.
    * @param sharedVector The vector that will be shared with the main thread to periodically write to the file (ie. to deliver messages).
    * @param sharedVectorMtx The mutex used to lock the shared "messages to deliver "vector.
    * @param newMessagesToBroadcast The vector that will be shared with the main thread so it can write the messages that are to be proposed (in different runs).
    * @param newMsgsToBroadcastMtx The mutex used to lock the shared "new messages to broadcast" vector.
    */
-  LatticeAgreement(std::string id, std::vector<std::string> targetIpsAndPorts, std::string port, std::vector<std::string> &sharedMsgsToDeliver, std::mutex &sharedMsgsToDeliverMtx, std::vector<std::string> &newMessagesToBroadcast, std::mutex &newMsgsToBroadcastMtx);
+  LatticeAgreement(std::string id, std::unordered_map<std::string,std::string> idToIpAndPort, int n_proposals, std::string port, std::vector<std::string> &sharedMsgsToDeliver, std::mutex &sharedMsgsToDeliverMtx, std::deque<std::string> &newMessagesToBroadcast, std::mutex &newMsgsToBroadcastMtx);
 
   /**
    * Receives messages and processes them, eventually calling broadcasts too.
@@ -169,13 +208,24 @@ public:
    */
   void asyncReceiveMessages();
 
-  // TODO: probably not necessary. Not deleting just in case it is
+  /**
+   * Sends messages that are in the buffer.
+   * Will be called asynchronously, so it must be called in a separate thread.
+   */
+  void asyncSendMessages();
+
   /**
    * Sends a proposal.
    * @param proposed_set the set of values to propose.
    */
-  void startRound(std::string proposed_set);
+  void startRun(int runId, std::string proposedSet_str);
 
+  /**
+   * Puts a message in the buffer to be broadcasted (so it can be sent in batches of 8).
+   * It has the form `broadcast|<msg>`.
+   * @param msg the message to broadcast.
+   */
+  void enqueueNewMessagesToBroadcast(int runId, std::string proposedSet_str);
 };
 
 

@@ -41,12 +41,15 @@ std::string logsPath;
 
 // Struct to facilitate the reading of the config file
 struct ConfigValues {
-  unsigned long m; // number of messages to send
+  unsigned long p; // number of proposals
+  unsigned long vs; // maximum number of elements in a proposal
+  unsigned long ds; // max number of distinct elements across all proposals
+  std::vector<std::string> inputSets;
 };
 
 // Some declaration of functions
 ConfigValues readConfigFile(std::string& configPath);
-std::vector<std::string> parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort);
+std::unordered_map<std::string,std::string> parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort);
 
 // Function to handle the SIGINT and SIGTERM signals
 // It will write the logs to the output file before stopping the program
@@ -110,36 +113,34 @@ static void displayInitialInfo(Parser parser){
 
 // Function to read the config file
 ConfigValues readConfigFile(std::string& configPath) {
-
   std::ifstream file(configPath);
-  ConfigValues result{};
+  ConfigValues values;
 
   if (file.is_open()) {
     std::string line;
     if (std::getline(file, line)) {
       std::istringstream iss(line);
-      if (iss >> result.m) {
-        return result;
-      } else {
-        std::cerr << "Error: Could not read two numbers from the file." << std::endl;
-      }
-    } else {
-      std::cerr << "Error: File is empty." << std::endl;
+      iss >> values.p >> values.vs >> values.ds;
     }
+
+    while (std::getline(file, line)) {
+      values.inputSets.push_back(line);
+    }
+
     file.close();
   } else {
-    std::cerr << "Error: Unable to open the file." << std::endl;
+    std::cerr << "Unable to open file: " << configPath << std::endl;
   }
 
-  // If there was an error or the file couldn't be read, return default values.
-  return {0};
+  return values;
 }
 
 // Function to parse the hosts file.
-// It will return a vector of ips and the respective ports, in the format `<ip>:<port>`.
-std::vector<std::string> parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort) {
+// It will return a map of ids to their ips and the respective ports, in the format `<ip>:<port>` (so, the map will look like
+// `{"1": "127.0.0.1:12345", "2": "127.0.0.1:67890", ...}`.
+std::unordered_map<std::string,std::string> parseHostsFile(std::vector<Parser::Host> hosts, unsigned long id, std::string &myPort) {
 
-  std::vector<std::string> ipsAndPorts;
+  std::unordered_map<std::string,std::string> idToIpAndPort;
 
   for (auto &host : hosts) {
     struct in_addr addr;
@@ -151,10 +152,10 @@ std::vector<std::string> parseHostsFile(std::vector<Parser::Host> hosts, unsigne
     if (host.id == id) {
       myPort = std::to_string(port);
     }
-    ipsAndPorts.push_back(ip + ":" + std::to_string(port));
+    idToIpAndPort.emplace(std::to_string(id), ip + ":" + std::to_string(port));
   }
 
-  return ipsAndPorts;
+  return idToIpAndPort;
 }
 
 
@@ -186,7 +187,7 @@ int main(int argc, char **argv) {
   // Given the config file's id, we know the id of the receiver.
   // We can use this to get the receiver's ip and port by using the hosts file.
   std::string myPort;
-  auto receiverIpsAndPorts = parseHostsFile(hosts, id, myPort);
+  auto idToIpAndPort = parseHostsFile(hosts, id, myPort);
   int nHosts = static_cast<int>(hosts.size())-1;
 
   // Based on the config file's id, we know if this process is a sender or a receiver.
@@ -196,9 +197,10 @@ int main(int argc, char **argv) {
   // sleep(30);
 
   // PerfectLink link(myPort);
-  // Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts);
-  Process process(myPort, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), receiverIpsAndPorts, logsPath, &logsBuffer);
-  process.doFIFO();
+  // Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), idToIpAndPort);
+
+  Process process(myPort, static_cast<int>(configValues.p), nHosts, static_cast<int>(id), idToIpAndPort, logsPath, &logsBuffer, configValues.inputSets);
+  process.doLatticeAgreement();
 
   std::cout << "My job here is done. Waiting for my termination...\n\n";
 

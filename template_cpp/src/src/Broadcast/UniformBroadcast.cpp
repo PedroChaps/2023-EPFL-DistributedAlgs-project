@@ -119,7 +119,7 @@ void UniformBroadcast::async_receive_broadcasts() {
       }
       debug("[Process] Unlocked the Mutex for the shared Vector");
     } else {
-      debug("[UniformBroadcast] (receiver) Message `" + message +  "` can't be delivered yet, as acked_msgs.size() = " + std::to_string(acked_msgs[message].size()) + ", and targetIpsAndPorts.size() = " + std::to_string(targetIpsAndPorts.size()) + " and delivered.find(message) == delivered.end() is " + std::to_string(static_cast<int>(delivered.find(message) == delivered.end())));
+      debug("[UniformBroadcast] (receiver) Message `" + message +  "` can't be delivered yet, as acked_msgs.size() = " + std::to_string(acked_msgs[message].size()) + ", and idToIpAndPort.size() = " + std::to_string(targetIpsAndPorts.size()) + " and delivered.find(message) == delivered.end() is " + std::to_string(static_cast<int>(delivered.find(message) == delivered.end())));
     }
 
   }

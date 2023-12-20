@@ -9,6 +9,7 @@
 #include "Receiver.h"
 #include "Sender.h"
 #include "../Broadcast/UniformBroadcast.h"
+#include "../Broadcast/LatticeAgreement.h"
 
 /**
 For delivery 2, we need (at least) two threads: one to send and one to receive (they will serve as the Sender and as the Receiver of the delivery 1 at the same time).
@@ -29,9 +30,9 @@ class Process {
   // Receiver tReceiver;
   // Sender tSender;
   int processId;
-  std::vector<std::string> targetIPsAndPorts;
+  std::unordered_map<std::string,std::string> idToIPAndPort;
   std::string myPort;
-  int n_messages;
+  int n_proposals;
 
   std::string logsPath;
   std::stringstream *logsBufferPtr;
@@ -40,8 +41,12 @@ class Process {
   std::condition_variable bufferCv;
 
   int round;
+  int maxRun = -1;
+  int lastDeliveredRun = -1;
 
-  void async_sendBroadcastsInRounds(UniformBroadcast &uniformBroadcast);
+  std::vector<std::string> &inputSets;
+
+  void async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreement);
 public:
 
   /**
@@ -49,13 +54,13 @@ public:
    * @param myPort The port used to send and receive messages.
    * @param logsPath The path to the output file.
    * @param logsBuffer The buffer used to store the logs.
-   * @param m The number of messages to send.
+   * @param p The number of proposals to send.
    * @param processId The id of this process, sent in the messages.
    * @param targetIPs The IP addresses of the receiver Processes.
    * @param targetPorts The ports of the receiver Processes.
    */
-  // Process(PerfectLink &link, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts);
-  Process(std::string myPort, int m, int nHosts, int processId, std::vector<std::string> targetIPsAndPorts, std::string logsPath, std::stringstream *logsBuffer);
+  // Process(PerfectLink &link, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int p, int nHosts, int processId, std::vector<std::string> idToIPAndPort);
+  Process(std::string myPort, int p, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string logsPath, std::stringstream *logsBuffer, std::vector<std::string> &inputSets);
 
   /**
    * Start doing stuff i.e. sending and receiving messages on both threads.
