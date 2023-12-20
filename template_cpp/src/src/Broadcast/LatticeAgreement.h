@@ -35,7 +35,7 @@ class LatticeAgreement {
 
   // Pseudo-algorithm variables
   std::vector<bool> active;
-  std::vector<std::mutex> activeMtx;
+  std::vector<std::unique_ptr<std::mutex>> activeMtx;
   std::vector<int> ackCount;
   std::vector<int> nackCount;
   std::vector<int> activeProposalNumber;
@@ -142,10 +142,10 @@ class LatticeAgreement {
    * Processes a received proposal.
    * @param runId the id of the run.
    * @param processId the id of the process that sent the proposal.
-   * @param roundId the id of the round in which the proposal was sent.
+   * @param proposalNumber_str the id of the round in which the proposal was sent.
    * @param proposedSet the set of values proposed by the process.
    */
-  void processProposal(std::string runId, std::string processId, std::string roundId, std::string proposedSet);
+  void processProposal(std::string runId, std::string processId, std::string proposalNumber_str, std::string proposedSet);
 
   /**
    * Processes a received ACK.

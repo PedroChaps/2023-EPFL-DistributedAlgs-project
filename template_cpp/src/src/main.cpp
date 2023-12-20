@@ -13,7 +13,7 @@
 #include <chrono>
 #include <ctime>
 
-#define DEBUG 0
+#define DEBUG 1
 template <class T>
 void debug(T msg) {
 
@@ -152,7 +152,7 @@ std::unordered_map<std::string,std::string> parseHostsFile(std::vector<Parser::H
     if (host.id == id) {
       myPort = std::to_string(port);
     }
-    idToIpAndPort.emplace(std::to_string(id), ip + ":" + std::to_string(port));
+    idToIpAndPort.emplace(std::to_string(host.id), ip + ":" + std::to_string(port));
   }
 
   return idToIpAndPort;
@@ -200,6 +200,7 @@ int main(int argc, char **argv) {
   // Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), idToIpAndPort);
 
   Process process(myPort, static_cast<int>(configValues.p), nHosts, static_cast<int>(id), idToIpAndPort, logsPath, &logsBuffer, configValues.inputSets);
+
   process.doLatticeAgreement();
 
   std::cout << "My job here is done. Waiting for my termination...\n\n";

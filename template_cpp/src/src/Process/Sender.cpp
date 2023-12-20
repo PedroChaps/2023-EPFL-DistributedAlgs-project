@@ -16,7 +16,7 @@
 #include <chrono>
 #include <ctime>
 
-#define DEBUG 0
+#define DEBUG 1
 template <class T>
 void debug(T msg) {
 

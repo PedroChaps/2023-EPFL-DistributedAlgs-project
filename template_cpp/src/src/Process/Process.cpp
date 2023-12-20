@@ -13,7 +13,7 @@
 
 #define DELTA_RUNS 3
 
-#define DEBUG 0
+#define DEBUG 1
 template <class T>
 void debug(T msg) {
 
@@ -258,7 +258,7 @@ void Process::doLatticeAgreement() {
   // Periodically consumes the delivered messages
   while (1) {
     // Local copy to avoid holding the lock for too long
-    debug("[Process] Waiting for the Mutex for the shared Vector");
+    // debug("[Process] Waiting for the Mutex for the shared Vector");
     std::vector<std::string> localCopy;
     {
       // Acquire the lock before accessing the shared vector
@@ -267,7 +267,7 @@ void Process::doLatticeAgreement() {
       // Consume the entries
       sharedVector.clear();
     }
-    debug("[Process] Creating a local copy of the shared Vector. Now iterating over it...");
+    // debug("[Process] Creating a local copy of the shared Vector. Now iterating over it...");
 
     // Insert the messages in order
     for (const std::string& message : localCopy) {
@@ -284,7 +284,7 @@ void Process::doLatticeAgreement() {
     std::sort(messagesToDeliver.begin(), messagesToDeliver.end(), comparePairs);
 
     // Check if this new messages unlocked being able to deliver more
-    debug("[Process] Trying to deliver messages...");
+    // debug("[Process] Trying to deliver messages...");
     while (messagesToDeliver.size() > 0 and messagesToDeliver[0].first == lastDeliveredRun + 1) {
       // If so, delivers the messages
       debug("[Process] Delivering the message `" + messagesToDeliver[0].second + "` with runId `" + std::to_string(messagesToDeliver[0].first) + "`");
