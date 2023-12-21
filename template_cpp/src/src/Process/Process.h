@@ -34,6 +34,7 @@ class Process {
   std::string myPort;
   int n_proposals;
 
+  std::string configPath;
   std::string logsPath;
   std::stringstream *logsBufferPtr;
 
@@ -44,14 +45,13 @@ class Process {
   int maxRun = -1;
   int lastDeliveredRun = -1;
 
-  std::vector<std::string> &inputSets;
-
   void async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreement);
 public:
 
   /**
    * Constructor.
    * @param myPort The port used to send and receive messages.
+   * @param configPath The path to the config file (to read the proposals).
    * @param logsPath The path to the output file.
    * @param logsBuffer The buffer used to store the logs.
    * @param p The number of proposals to send.
@@ -60,7 +60,7 @@ public:
    * @param targetPorts The ports of the receiver Processes.
    */
   // Process(PerfectLink &link, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int p, int nHosts, int processId, std::vector<std::string> idToIPAndPort);
-  Process(std::string myPort, int p, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string logsPath, std::stringstream *logsBuffer, std::vector<std::string> &inputSets);
+  Process(std::string myPort, int p, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer);
 
   /**
    * Start doing stuff i.e. sending and receiving messages on both threads.

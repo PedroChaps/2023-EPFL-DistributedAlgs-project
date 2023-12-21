@@ -38,8 +38,8 @@ void debug(T msg) {
 bool comparePairs(const std::pair<int, std::string> &a, const std::pair<int, std::string> &b);
 
 // Constructor
-Process::Process(std::string myPort, int p, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string logsPath, std::stringstream *logsBuffer, std::vector<std::string> &inputSets) :
-        processId(processId), idToIPAndPort(idToIPAndPort), myPort(myPort), n_proposals(p), logsPath(logsPath), inputSets(inputSets) {
+Process::Process(std::string myPort, int p, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer) :
+        processId(processId), idToIPAndPort(idToIPAndPort), myPort(myPort), n_proposals(p), configPath(configPath), logsPath(logsPath) {
 
     logsBufferPtr = logsBuffer;
     round = 0;
@@ -47,6 +47,30 @@ Process::Process(std::string myPort, int p, int nHosts, int processId, std::unor
 
 // FIXME: just sending the messages one by one, without using the batches
 void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreement) {
+
+  // This function will read the config file to get the proposed sets
+
+  std::ifstream file(configPath);
+  if (not file.is_open()) {
+    std::cerr << "Unable to open file: " << configPath << std::endl;
+    exit(1);
+  }
+
+  std::string line;
+  // Ignores the first line (the one with some parameters), as it was already read in the constructor
+  std::getline(file, line);
+  line = "";
+
+//
+//     // TODO: remove (bcz it's read in Process)
+//     while (std::getline(file, line)) {
+//       values.inputSets.push_back(line);
+//     }
+//
+//     file.close();
+//
+
+  std::vector<std::string> inputSets;
 
   // Creates and broadcasts all the messages
   debug("[Process] (sender) Creating and sending messages...");
@@ -64,8 +88,15 @@ void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreemen
         return i <= n_proposals and lastBroadcastedRun - lastDeliveredRun <= DELTA_RUNS;
       });
 
-      debug("[Process] (sender) Starting run " + std::to_string(i) + " with input set `" + inputSets[static_cast<unsigned long>(i)] + "`");
-      latticeAgreement.startRun(i, inputSets[static_cast<unsigned long>(i)]);
+      // Reads the next line
+      std::getline(file, line);
+      if (line.empty()) {
+        // If the line is empty, it means we reached the end of the file
+        break;
+      }
+
+      debug("[Process] (sender) Starting run " + std::to_string(i) + " with input set `" + line + "`");
+      latticeAgreement.startRun(i, line);
 
       // Periodically saves the logs
       if (i % 240 == 0) {
