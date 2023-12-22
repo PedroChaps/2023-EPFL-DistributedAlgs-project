@@ -66,6 +66,7 @@ class LatticeAgreement {
   int f;
 
   int n_proposals;
+  unsigned long max_unique_vals;
 
   /**
    * The link used to communicate. Uses the port received as an argument.
@@ -200,7 +201,7 @@ public:
    * @param newMessagesToBroadcast The vector that will be shared with the main thread so it can write the messages that are to be proposed (in different runs).
    * @param newMsgsToBroadcastMtx The mutex used to lock the shared "new messages to broadcast" vector.
    */
-  LatticeAgreement(std::string id, std::unordered_map<std::string,std::string> idToIpAndPort, int n_proposals, std::string port, std::vector<std::string> &sharedMsgsToDeliver, std::mutex &sharedMsgsToDeliverMtx, std::deque<std::string> &newMessagesToBroadcast, std::mutex &newMsgsToBroadcastMtx);
+  LatticeAgreement(std::string id, std::unordered_map<std::string,std::string> idToIpAndPort, int n_proposals, unsigned long max_nr_vals, std::string port, std::vector<std::string> &sharedMsgsToDeliver, std::mutex &sharedMsgsToDeliverMtx, std::deque<std::string> &newMessagesToBroadcast, std::mutex &newMsgsToBroadcastMtx);
 
   /**
    * Receives messages and processes them, eventually calling broadcasts too.

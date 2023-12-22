@@ -39,8 +39,8 @@ void debug(T msg) {
 bool comparePairs(const std::pair<int, std::string> &a, const std::pair<int, std::string> &b);
 
 // Constructor
-Process::Process(std::string myPort, int p, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer) :
-        processId(processId), idToIPAndPort(idToIPAndPort), myPort(myPort), n_proposals(p), configPath(configPath), logsPath(logsPath) {
+Process::Process(std::string myPort, int p, unsigned long max_unique_vals, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer) :
+        processId(processId), idToIPAndPort(idToIPAndPort), myPort(myPort), n_proposals(p), max_unique_vals(max_unique_vals), configPath(configPath), logsPath(logsPath) {
 
     logsBufferPtr = logsBuffer;
     round = 0;
@@ -274,6 +274,7 @@ void Process::doLatticeAgreement() {
           std::to_string(processId),
           idToIPAndPort,
           n_proposals,
+          max_unique_vals,
           myPort,
           sharedMsgsToDeliver,
           sharedMsgsToDeliverMtx,
@@ -324,8 +325,6 @@ void Process::doLatticeAgreement() {
 
     // Check if this new messages unlocked being able to deliver more
     // debug("[Process] Trying to deliver messages...");
-    if (DEBUG and !messagesToDeliver.empty()) std::cout << "messagesToDeliver[0].first: `" << messagesToDeliver[0].first << "`" << std::endl;
-    if (DEBUG) std::cout << "lastDeliveredRun: `" << lastDeliveredRun << "`" << std::endl;
     while (!messagesToDeliver.empty() and messagesToDeliver[0].first == lastDeliveredRun + 1) {
       // If so, delivers the messages
       if (DEBUG) std::cout << "Delivering the message `" << messagesToDeliver[0].second << "` with runId `" << std::to_string(messagesToDeliver[0].first) << "`" << std::endl;

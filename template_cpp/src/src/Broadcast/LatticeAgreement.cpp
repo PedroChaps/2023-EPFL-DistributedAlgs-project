@@ -40,6 +40,7 @@ LatticeAgreement::LatticeAgreement(
         std::string id,
         std::unordered_map<std::string,std::string> idToIpAndPort,
         int n_proposals,
+        unsigned long max_nr_vals,
         std::string port,
         std::vector<std::string> &sharedMsgsToDeliver,
         std::mutex &sharedMsgsToDeliverMtx,
@@ -50,6 +51,7 @@ LatticeAgreement::LatticeAgreement(
         nrProcesses(static_cast<int>(idToIpAndPort.size())),
         f((nrProcesses - 1) / 2),
         n_proposals(n_proposals),
+        max_unique_vals(max_nr_vals),
         link(PerfectLink(port)),
         sharedMsgsToDeliver(sharedMsgsToDeliver),
         sharedMsgsToDeliverMtx(sharedMsgsToDeliverMtx),
@@ -254,6 +256,22 @@ void LatticeAgreement::receiver_processNack(std::string runId_str, std::string p
 
   myProposedSet[runId] = unionSet;
   nackCount[runId]++;
+
+  if (myProposedSet[runId].size() == max_unique_vals) {
+    debug("[LatticeAgreement] (sender) Shortcut! The proposed set is already the maximum size, so I will enqueue it to be delivered");
+    active[runId] = false;
+    {
+      std::unique_lock<std::mutex> lock(sharedMsgsToDeliverMtx);
+      debug("[LatticeAgreement] Locked the mutex. Now I will append the accepted set to the shared vector. Appended message:");
+      auto set_str = setToStringDeliveryFormat(myProposedSet[runId]);
+
+      debug("[LatticeAgreement] Enqueuing the following:");
+      if (DEBUG) std::cout << runId_str + ":" + set_str << std::endl;
+
+      sharedMsgsToDeliver.push_back(runId_str + ":" + set_str);
+    }
+    return;
+  }
 }
 
 
@@ -488,6 +506,23 @@ void LatticeAgreement::startRun(int runId, std::string proposedSet_str) {
 
   // Convert the input set to the used format (ie. from `<nr1> <nr2> ... <nrN>` to `<nr1>,<nr2>,...,<nrN>`)
   std::string proposedSet_str2 = setToString(proposedSet);
+
+  if (proposedSet.size() == max_unique_vals) {
+    debug("[LatticeAgreement] (sender) Shortcut! The proposed set is already the maximum size, so I will enqueue it to be delivered");
+    active[runId_ul] = false;
+    {
+      std::unique_lock<std::mutex> lock(sharedMsgsToDeliverMtx);
+      debug("[LatticeAgreement] Locked the mutex. Now I will append the accepted set to the shared vector. Appended message:");
+      auto set_str = setToStringDeliveryFormat(myProposedSet[runId_ul]);
+      auto runId_str = std::to_string(runId_ul);
+
+      debug("[LatticeAgreement] Enqueuing the following:");
+      if (DEBUG) std::cout << runId_str + ":" + set_str << std::endl;
+
+      sharedMsgsToDeliver.push_back(runId_str + ":" + set_str);
+    }
+    return;
+  }
 
   // Generate the broadcast message and save it in the newMessages
   enqueueNewMessagesToBroadcast(runId, proposedSet_str2);
