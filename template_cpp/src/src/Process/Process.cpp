@@ -10,6 +10,7 @@
 #include <chrono>
 #include <ctime>
 #include <algorithm>
+#include <unistd.h>
 
 #define DELTA_RUNS 3
 
@@ -260,8 +261,8 @@ bool comparePairs(const std::pair<int, std::string> &a, const std::pair<int, std
 
 void Process::doLatticeAgreement() {
 
-  std::vector<std::string> sharedVector;
-  std::mutex sharedVectorMtx;
+  std::vector<std::string> sharedMsgsToDeliver;
+  std::mutex sharedMsgsToDeliverMtx;
 
   std::deque<std::string> newMessagesToBroadcast;
   std::mutex newMessagesToBroadcastMtx;
@@ -271,8 +272,8 @@ void Process::doLatticeAgreement() {
           idToIPAndPort,
           n_proposals,
           myPort,
-          sharedVector,
-          sharedVectorMtx,
+          sharedMsgsToDeliver,
+          sharedMsgsToDeliverMtx,
           newMessagesToBroadcast,
           newMessagesToBroadcastMtx
   );
@@ -282,7 +283,7 @@ void Process::doLatticeAgreement() {
   std::thread tSenderThread(&Process::async_enqueueMessagesToBroadcast, this, std::ref(latticeAgreement));
 
   // Creates structure that will hold the not-yet-delivered messages (as they need to be delivered in order)
-  // Periodically, the sharedVector will be read and messsaes will be added to this structure.
+  // Periodically, the sharedMsgsToDeliver will be read and messsaes will be added to this structure.
   // Then, if it's possible to deliver some messages, they will be delivered.
   std::vector<std::pair<int, std::string>> messagesToDeliver;
 
@@ -290,13 +291,16 @@ void Process::doLatticeAgreement() {
   while (1) {
     // Local copy to avoid holding the lock for too long
     // debug("[Process] Waiting for the Mutex for the shared Vector");
+    debug("[Process] Creating a local copy of the shared Vector. Waiting for the Mutex for the shared Vector");
     std::vector<std::string> localCopy;
+
     {
       // Acquire the lock before accessing the shared vector
-      std::lock_guard<std::mutex> lock(sharedVectorMtx);
-      localCopy = sharedVector;
+      std::unique_lock<std::mutex> lock(sharedMsgsToDeliverMtx);
+      debug("[Process] Locked the Mutex for the shared Vector");
+      localCopy = sharedMsgsToDeliver;
       // Consume the entries
-      sharedVector.clear();
+      sharedMsgsToDeliver.clear();
     }
     // debug("[Process] Creating a local copy of the shared Vector. Now iterating over it...");
 
@@ -329,6 +333,7 @@ void Process::doLatticeAgreement() {
       messagesToDeliver.erase(messagesToDeliver.begin());
       lastDeliveredRun++;
     }
+    debug("[Process] Done delivering messages");
   }
 }
 

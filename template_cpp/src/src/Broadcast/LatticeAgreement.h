@@ -140,34 +140,34 @@ class LatticeAgreement {
    * */
   /**
    * Processes a received proposal.
-   * @param runId the id of the run.
+   * @param runId_str the id of the run.
    * @param processId the id of the process that sent the proposal.
    * @param proposalNumber_str the id of the round in which the proposal was sent.
-   * @param proposedSet the set of values proposed by the process.
+   * @param proposedSet_str the set of values proposed by the process.
    */
-  void processProposal(std::string runId, std::string processId, std::string proposalNumber_str, std::string proposedSet);
+  void receiver_processProposal(std::string runId_str, std::string processId, std::string proposalNumber_str, std::string proposedSet_str);
 
   /**
    * Processes a received ACK.
-   * @param runId the id of the run.
+   * @param runId_str the id of the run.
    * @param processId the id of the process that sent the ACK.
    * @param proposalNumber_str the id of the round in which the ACK was sent.
    */
-  void processAck(std::string runId, std::string processId, std::string proposalNumber_str);
+  void receiver_processAck(std::string runId_str, std::string processId, std::string proposalNumber_str);
 
   /**
    * Processes a received NACK.
-   * @param runId the id of the run.
+   * @param runId_str the id of the run.
    * @param processId the id of the process that sent the NACK.
    * @param proposalNumber_str the id of the round in which the NACK was sent.
-   * @param proposedSet the set of values proposed by the process.
+   * @param proposedSet_str the set of values proposed by the process.
    */
-  void processNack(std::string runId, std::string processId, std::string proposalNumber_str, std::string proposedSet);
+  void receiver_processNack(std::string runId_str, std::string processId, std::string proposalNumber_str, std::string proposedSet_str);
 
   /**
    * After receiveing a nack/ack, checks for nack/ack conditions (lines 19-26 of pseudocode)
    */
-  void doNacksAndAcksChecks(std::string runId);
+  void receiver_doNacksAndAcksChecks(std::string runId_str);
 
   /**
    * Puts a message in the buffer to be sent (so it can be sent in batches of 8).
@@ -206,13 +206,13 @@ public:
    * Receives messages and processes them, eventually calling broadcasts too.
    * Will be called asynchronously, so it must be called in a separate thread.
    */
-  void asyncReceiveMessages();
+  void async_ReceiveMessages();
 
   /**
    * Sends messages that are in the buffer.
    * Will be called asynchronously, so it must be called in a separate thread.
    */
-  void asyncSendMessages();
+  void async_SendMessages();
 
   /**
    * Sends a proposal.
