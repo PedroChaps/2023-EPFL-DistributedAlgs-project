@@ -65,6 +65,7 @@ LatticeAgreement::LatticeAgreement(
   activeProposalNumber.resize(static_cast<unsigned long>(n_proposals));
   myProposedSet.resize(static_cast<unsigned long>(n_proposals));
   acceptedSet.resize(static_cast<unsigned long>(n_proposals));
+  alreadyDelivered.resize(static_cast<unsigned long>(n_proposals));
 
   for (unsigned long i = 0; i < static_cast<unsigned long>(n_proposals); i++) {
     active[i] = false;
@@ -74,6 +75,7 @@ LatticeAgreement::LatticeAgreement(
     myProposedSet[i] = std::set<int>();
     acceptedSet[i] = std::set<int>();
     activeMtx.emplace_back(std::make_unique<std::mutex>());
+    alreadyDelivered[i] = false;
   }
 
   // Creates the thread to receive broadcasts
@@ -257,7 +259,8 @@ void LatticeAgreement::receiver_processNack(std::string runId_str, std::string p
   myProposedSet[runId] = unionSet;
   nackCount[runId]++;
 
-  if (myProposedSet[runId].size() == max_unique_vals) {
+  if (myProposedSet[runId].size() == max_unique_vals and not alreadyDelivered[runId]) {
+    alreadyDelivered[runId] = true;
     debug("[LatticeAgreement] (sender) Shortcut! The proposed set is already the maximum size, so I will enqueue it to be delivered");
     active[runId] = false;
     {
@@ -303,8 +306,9 @@ void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
   }
 
   debug("[LatticeAgreement] Doing the `upon` checks of lines 24-26 of pseudocode");
-  if (static_cast<size_t>(ackCount[runId]) >= static_cast<size_t>(f+1)) {
+  if (static_cast<size_t>(ackCount[runId]) >= static_cast<size_t>(f+1) and not alreadyDelivered[runId]) {
 
+    alreadyDelivered[runId] = true;
     debug("[LatticeAgreement] The condition is met, so I stop the run and deliver my proposed set");
     if (DEBUG) std::cout << setToString(myProposedSet[runId]) << std::endl;
 
@@ -399,9 +403,29 @@ void LatticeAgreement::async_SendMessages() {
         newMessagesToBroadcast.pop_front();
         i++;
       }
+//      if (ackNackMessagesToSend.size() > 0) {
+//        if (DEBUG) std::cout << "The vector of ACK/NACK msgs to send looks like: " << std::endl;
+//        for (auto compositeMsg: ackNackMessagesToSend) {
+//          if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
+//        }
+//        if (DEBUG) std::cout << std::endl;
+//      }
+//      if (newMessagesToBroadcast.size() > 0) {
+//        if (DEBUG) std::cout << "The vector of newMessagesToBroadcast to send looks like: " << std::endl;
+//        for (auto compositeMsg: newMessagesToBroadcast) {
+//          if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
+//        }
+//        if (DEBUG) std::cout << std::endl;
+//      }
     }
     // debug("[LatticeAgreement] (sender) Locked the Mutex, unlocked it and have a copy of some messages");
-
+//    if (messagesToShareCopy.size() > 0) {
+//      if (DEBUG) std::cout << "The vector of messages to be processed looks like: " << std::endl;
+//      for (auto compositeMsg: messagesToShareCopy) {
+//        if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
+//      }
+//      if (DEBUG) std::cout << std::endl;
+//    }
     // Sends the messages
     for (auto compositeMsg : messagesToShareCopy) {
       // The message is of the form `send <target_id>|<message>` or `broadcast|<message>`
@@ -507,7 +531,8 @@ void LatticeAgreement::startRun(int runId, std::string proposedSet_str) {
   // Convert the input set to the used format (ie. from `<nr1> <nr2> ... <nrN>` to `<nr1>,<nr2>,...,<nrN>`)
   std::string proposedSet_str2 = setToString(proposedSet);
 
-  if (proposedSet.size() == max_unique_vals) {
+  if (proposedSet.size() == max_unique_vals and not alreadyDelivered[runId_ul]) {
+    alreadyDelivered[runId_ul] = true;
     debug("[LatticeAgreement] (sender) Shortcut! The proposed set is already the maximum size, so I will enqueue it to be delivered");
     active[runId_ul] = false;
     {

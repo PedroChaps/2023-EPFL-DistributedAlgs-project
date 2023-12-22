@@ -314,8 +314,8 @@ void Process::doLatticeAgreement() {
       std::string runId = message.substr(0, message.find(':'));
       std::string sequenceNumbers = message.substr(message.find(':') + 1);
 
-      if (DEBUG) std::cout << "Run id: `" << runId << "`" << std::endl;
-      if (DEBUG) std::cout << "sequenceNumbers: `" << sequenceNumbers << "`" << std::endl;
+//      if (DEBUG) std::cout << "Run id: `" << runId << "`" << std::endl;
+//      if (DEBUG) std::cout << "sequenceNumbers: `" << sequenceNumbers << "`" << std::endl;
 
       // Adds the message to the vector
       messagesToDeliver.emplace_back(stoi(runId), sequenceNumbers);
@@ -325,6 +325,13 @@ void Process::doLatticeAgreement() {
 
     // Check if this new messages unlocked being able to deliver more
     // debug("[Process] Trying to deliver messages...");
+//    if (DEBUG) std::cout << "messagesToDeliver[0].first: `" << messagesToDeliver[0].first << "`" << std::endl;
+//    if (DEBUG) std::cout << "lastDeliveredRun: `" << lastDeliveredRun << "`" << std::endl;
+//    if (DEBUG) {
+//      for (auto &msg : messagesToDeliver) {
+//        std::cout << "messagesToDeliver: `" << msg.first << "` `" << msg.second << "`" << std::endl;
+//      }
+//    }
     while (!messagesToDeliver.empty() and messagesToDeliver[0].first == lastDeliveredRun + 1) {
       // If so, delivers the messages
       if (DEBUG) std::cout << "Delivering the message `" << messagesToDeliver[0].second << "` with runId `" << std::to_string(messagesToDeliver[0].first) << "`" << std::endl;

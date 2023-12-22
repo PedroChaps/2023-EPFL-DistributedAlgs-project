@@ -42,6 +42,7 @@ class LatticeAgreement {
   std::vector<std::set<int>> myProposedSet;
   std::mutex myProposedSetMtx; // FIXME: maybe not needed. Remove later
   std::vector<std::set<int>> acceptedSet;
+  std::vector<bool> alreadyDelivered;
 
   /**
    * The number of active runs.
