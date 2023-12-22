@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
   // PerfectLink link(myPort);
   // Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), idToIpAndPort);
 
-  Process process(myPort, static_cast<int>(configValues.p), configValues.vs, nHosts, static_cast<int>(id), idToIpAndPort, configPath, logsPath, &logsBuffer);
+  Process process(myPort, static_cast<int>(configValues.p), nHosts, static_cast<int>(id), idToIpAndPort, configPath, logsPath, &logsBuffer);
 
   process.doLatticeAgreement();
 
