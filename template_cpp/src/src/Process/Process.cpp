@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <unistd.h>
 
-#define DELTA_RUNS 3
+#define DELTA_RUNS 8
 
 #define DEBUG 1
 template <class T>
@@ -291,13 +291,11 @@ void Process::doLatticeAgreement() {
   while (1) {
     // Local copy to avoid holding the lock for too long
     // debug("[Process] Waiting for the Mutex for the shared Vector");
-    debug("[Process] Creating a local copy of the shared Vector. Waiting for the Mutex for the shared Vector");
     std::vector<std::string> localCopy;
 
     {
       // Acquire the lock before accessing the shared vector
       std::unique_lock<std::mutex> lock(sharedMsgsToDeliverMtx);
-      debug("[Process] Locked the Mutex for the shared Vector");
       localCopy = sharedMsgsToDeliver;
       // Consume the entries
       sharedMsgsToDeliver.clear();
@@ -333,7 +331,6 @@ void Process::doLatticeAgreement() {
       messagesToDeliver.erase(messagesToDeliver.begin());
       lastDeliveredRun++;
     }
-    debug("[Process] Done delivering messages");
   }
 }
 

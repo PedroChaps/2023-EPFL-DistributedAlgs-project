@@ -34,6 +34,7 @@ void debug(T msg) {
   }
 }
 
+#define MSGS_TO_BUFFER 35
 
 LatticeAgreement::LatticeAgreement(
         std::string id,
@@ -165,19 +166,29 @@ void LatticeAgreement::async_ReceiveMessages() {
 
 void LatticeAgreement::receiver_processProposal(std::string runId_str, std::string processId, std::string proposalNumber_str, std::string proposedSet_str) {
 
+  debug("[LatticeAgreement] Received set proposal: " + proposedSet_str);
+
   // Converts the string to a set of integers
   std::set<int> proposedSet = stringToSet(proposedSet_str);
   unsigned long runId = stoul(runId_str);
 
+  debug("[LatticeAgreement] (receiver) My accepted set was: ");
+  std::cout << setToString(acceptedSet[runId]) << std::endl;
+  debug("[LatticeAgreement] (receiver) The received set was: ");
+  std::cout << setToString(proposedSet) << std::endl;
+
   // If acceptedSet is a subset or equal to proposedSet, then accept the proposal
   if (std::includes(proposedSet.begin(), proposedSet.end(), acceptedSet[runId].begin(), acceptedSet[runId].end())) {
+    debug("[LatticeAgreement] (receiver) I accept the proposal! Received a set that is a superset of the accepted set, so I will accept it");
     acceptedSet[runId] = proposedSet;
     enqueueToSend(processId, runId_str + " a " + id + " " + proposalNumber_str);
   }
   else {
+    debug("[LatticeAgreement] (receiver) I don't accept the proposal! Received a set that is not a superset of the accepted set, so I will NACK it");
     std::set<int> unionSet;
     std::set_union(acceptedSet[runId].begin(), acceptedSet[runId].end(), proposedSet.begin(), proposedSet.end(), std::inserter(unionSet, unionSet.begin()));
     acceptedSet[runId] = unionSet;
+    debug("[LatticeAgreement] (receiver) Sending NACK with proposed set (union of mine with the received one): " + setToString(unionSet));
     enqueueToSend(processId, runId_str + " n " + id + " " + proposalNumber_str + " " + setToString(unionSet));
   }
 
@@ -334,8 +345,6 @@ void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
 // FIXME: temporary solution just to have a baseline running
 void LatticeAgreement::async_SendMessages() {
 
-  int msgsToBuffer = 15;
-
   // creates a copy vector so the original vectors can be unlocked
   std::vector<std::string> messagesToShareCopy;
 
@@ -349,12 +358,12 @@ void LatticeAgreement::async_SendMessages() {
 
       // Gets up until `msgsToBuffer` from the vector `ackNackMessagesToSend`, as it has more priority, and then gets the rest from `newMessagesToBroadcast`
       int i = 0;
-      while (i < msgsToBuffer and not ackNackMessagesToSend.empty()) {
+      while (i < MSGS_TO_BUFFER and not ackNackMessagesToSend.empty()) {
         messagesToShareCopy.push_back(ackNackMessagesToSend.front());
         ackNackMessagesToSend.pop_front();
         i++;
       }
-      while (i < msgsToBuffer and not newMessagesToBroadcast.empty()) {
+      while (i < MSGS_TO_BUFFER and not newMessagesToBroadcast.empty()) {
         messagesToShareCopy.push_back(newMessagesToBroadcast.front());
         newMessagesToBroadcast.pop_front();
         i++;
@@ -399,6 +408,11 @@ void LatticeAgreement::async_SendMessages() {
 
 
 std::string LatticeAgreement::setToString(const std::set<int>& set) {
+
+  if (set.empty()) {
+    return "";
+  }
+
   std::string result = "";
   for (int nr : set) {
     result += std::to_string(nr) + ",";
