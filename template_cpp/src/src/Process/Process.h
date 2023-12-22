@@ -37,6 +37,7 @@ class Process {
   std::string configPath;
   std::string logsPath;
   std::stringstream *logsBufferPtr;
+  std::mutex logsBufferMtx;
 
   std::mutex bufferMtx;
   std::condition_variable bufferCv;

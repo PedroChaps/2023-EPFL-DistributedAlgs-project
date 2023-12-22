@@ -188,7 +188,8 @@ void LatticeAgreement::receiver_processProposal(std::string runId_str, std::stri
     std::set<int> unionSet;
     std::set_union(acceptedSet[runId].begin(), acceptedSet[runId].end(), proposedSet.begin(), proposedSet.end(), std::inserter(unionSet, unionSet.begin()));
     acceptedSet[runId] = unionSet;
-    debug("[LatticeAgreement] (receiver) Sending NACK with proposed set (union of mine with the received one): " + setToString(unionSet));
+    debug("[LatticeAgreement] (receiver) Sending NACK with proposed set (union of mine with the received one): ");
+    if (DEBUG) std::cout << setToString(unionSet) << std::endl;
     enqueueToSend(processId, runId_str + " n " + id + " " + proposalNumber_str + " " + setToString(unionSet));
   }
 
@@ -240,8 +241,16 @@ void LatticeAgreement::receiver_processNack(std::string runId_str, std::string p
     return;
   }
 
+  debug("My proposed set was: ");
+  if (DEBUG) std::cout << setToString(myProposedSet[runId]) << std::endl;
+  debug("The received set was: ");
+  if (DEBUG) std::cout << setToString(proposedSet) << std::endl;
+
   std::set<int> unionSet;
   std::set_union(myProposedSet[runId].begin(), myProposedSet[runId].end(), proposedSet.begin(), proposedSet.end(), std::inserter(unionSet, unionSet.begin()));
+
+  debug("[LatticeAgreement] (receiver) The resulting union (which becomes my new proposed set) is: ");
+  if (DEBUG) std::cout << setToString(unionSet) << std::endl;
 
   myProposedSet[runId] = unionSet;
   nackCount[runId]++;
@@ -257,6 +266,7 @@ void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
     debug("[LatticeAgreement] Locking the mutex for the active variable");
     std::unique_lock<std::mutex> lock(*activeMtx[runId]);
     if (not active[runId]) {
+      debug("[LatticeAgreement] (receiver) Received a ACK/NACK from a run that is not active anymore, ignoring...");
       return;
     }
   }
@@ -277,14 +287,17 @@ void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
   debug("[LatticeAgreement] Doing the `upon` checks of lines 24-26 of pseudocode");
   if (static_cast<size_t>(ackCount[runId]) >= static_cast<size_t>(f+1)) {
 
-    debug("[LatticeAgreement] The condition is met, so I stop the run and deliver the accepted set");
+    debug("[LatticeAgreement] The condition is met, so I stop the run and deliver my proposed set");
+    if (DEBUG) std::cout << setToString(myProposedSet[runId]) << std::endl;
 
     active[runId] = false;
     {
       std::unique_lock<std::mutex> lock(sharedMsgsToDeliverMtx);
-      debug("[LatticeAgreement] Locked the mutex. Now I will append the accepted set to the shared vector");
-
+      debug("[LatticeAgreement] Locked the mutex. Now I will append the accepted set to the shared vector. Appended message:");
       auto set_str = setToStringDeliveryFormat(myProposedSet[runId]);
+
+      if (DEBUG) std::cout << runId_str + ":" + set_str << std::endl;
+
       sharedMsgsToDeliver.push_back(runId_str + ":" + set_str);
     }
   }

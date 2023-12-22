@@ -101,7 +101,10 @@ void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreemen
 
       // Periodically saves the logs
       if (i % 240 == 0) {
-        saveLogs();
+        {
+          std::lock_guard<std::mutex> lock_logs(logsBufferMtx);
+          saveLogs();
+        }
       }
       i++;
       lastBroadcastedRun++;
@@ -285,7 +288,7 @@ void Process::doLatticeAgreement() {
   // Creates structure that will hold the not-yet-delivered messages (as they need to be delivered in order)
   // Periodically, the sharedMsgsToDeliver will be read and messsaes will be added to this structure.
   // Then, if it's possible to deliver some messages, they will be delivered.
-  std::vector<std::pair<int, std::string>> messagesToDeliver;
+  std::deque<std::pair<int, std::string>> messagesToDeliver;
 
   // Periodically consumes the delivered messages
   while (1) {
@@ -304,31 +307,40 @@ void Process::doLatticeAgreement() {
 
     // Insert the messages in order
     for (const std::string& message : localCopy) {
-      debug("[Process] Processing message: `" + message + "`");
+      if (DEBUG) std::cout << "Processing message: `" << message << "`" << std::endl;
 
       // Split the message. It's of the form "<runId>:<n1> <n2> ... <nN>"
       std::string runId = message.substr(0, message.find(':'));
       std::string sequenceNumbers = message.substr(message.find(':') + 1);
 
+      if (DEBUG) std::cout << "Run id: `" << runId << "`" << std::endl;
+      if (DEBUG) std::cout << "sequenceNumbers: `" << sequenceNumbers << "`" << std::endl;
+
       // Adds the message to the vector
-      messagesToDeliver.push_back(std::make_pair(stoi(runId), sequenceNumbers));
+      messagesToDeliver.emplace_back(stoi(runId), sequenceNumbers);
     }
     // Sorts the vector
     std::sort(messagesToDeliver.begin(), messagesToDeliver.end(), comparePairs);
 
     // Check if this new messages unlocked being able to deliver more
     // debug("[Process] Trying to deliver messages...");
-    while (messagesToDeliver.size() > 0 and messagesToDeliver[0].first == lastDeliveredRun + 1) {
+    if (DEBUG and !messagesToDeliver.empty()) std::cout << "messagesToDeliver[0].first: `" << messagesToDeliver[0].first << "`" << std::endl;
+    if (DEBUG) std::cout << "lastDeliveredRun: `" << lastDeliveredRun << "`" << std::endl;
+    while (!messagesToDeliver.empty() and messagesToDeliver[0].first == lastDeliveredRun + 1) {
       // If so, delivers the messages
-      debug("[Process] Delivering the message `" + messagesToDeliver[0].second + "` with runId `" + std::to_string(messagesToDeliver[0].first) + "`");
+      if (DEBUG) std::cout << "Delivering the message `" << messagesToDeliver[0].second << "` with runId `" << std::to_string(messagesToDeliver[0].first) << "`" << std::endl;
+
       std::string sequenceNumbers = messagesToDeliver[0].second;
-      (*logsBufferPtr) << sequenceNumbers << std::endl;
+      {
+        std::lock_guard<std::mutex> lock_logs(logsBufferMtx);
+        (*logsBufferPtr) << "!" + std::to_string(messagesToDeliver[0].first) + "! " + sequenceNumbers << std::endl;
+      }
 
       // Every time something is delivered, notifies the other thread, so it can check if it can send more messages
       bufferCv.notify_all();
 
       // Removes the message from the vector
-      messagesToDeliver.erase(messagesToDeliver.begin());
+      messagesToDeliver.pop_front();
       lastDeliveredRun++;
     }
   }
