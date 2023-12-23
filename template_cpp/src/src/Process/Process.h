@@ -34,6 +34,7 @@ class Process {
   std::string myPort;
   int n_proposals;
   unsigned long max_unique_vals;
+  unsigned long max_vals_per_proposal;
 
   std::string configPath;
   std::string logsPath;
@@ -62,7 +63,7 @@ public:
    * @param targetPorts The ports of the receiver Processes.
    */
   // Process(PerfectLink &link, std::string myPort, std::string logsPath, std::stringstream *logsBuffer, int p, int nHosts, int processId, std::vector<std::string> idToIPAndPort);
-  Process(std::string myPort, int p, unsigned long max_unique_vals, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer);
+  Process(std::string myPort, int p, unsigned long max_unique_vals, unsigned long max_vals_per_proposal, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer);
 
   /**
    * Start doing stuff i.e. sending and receiving messages on both threads.

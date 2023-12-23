@@ -13,7 +13,7 @@
 #include <chrono>
 #include <ctime>
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
 
@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
   // PerfectLink link(myPort);
   // Process process(link, myPort, logsPath, &logsBuffer, static_cast<int>(configValues.m), nHosts, static_cast<int>(id), idToIpAndPort);
 
-  Process process(myPort, static_cast<int>(configValues.p), configValues.ds, nHosts, static_cast<int>(id), idToIpAndPort, configPath, logsPath, &logsBuffer);
+  Process process(myPort, static_cast<int>(configValues.p), configValues.ds, configValues.vs, nHosts, static_cast<int>(id), idToIpAndPort, configPath, logsPath, &logsBuffer);
 
   process.doLatticeAgreement();
 

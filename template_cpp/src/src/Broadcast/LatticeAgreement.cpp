@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <unistd.h>
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
 
@@ -415,6 +415,10 @@ void LatticeAgreement::async_SendMessages() {
     std::string batchBuilder = "";
     int i = 0;
     for (auto msg : updatedProposalsToBroadcast_copy) {
+      // Adding 1000 just to be sure
+      if (batchBuilder.length() + msg.length() + 1000 >= BUFFER_SIZE) {
+        break;
+      }
       if (i == 8) {
         // Remove the last comma
         batchBuilder.pop_back();
@@ -425,7 +429,7 @@ void LatticeAgreement::async_SendMessages() {
       batchBuilder += msg + ";";
       i++;
     }
-    if (batchBuilder != "") {
+    if (batchBuilder != "" and batchBuilder.length() < BUFFER_SIZE) {
       // Remove the last comma
       batchBuilder.pop_back();
       batchesToBroadcast.push_back(batchBuilder);
@@ -448,6 +452,10 @@ void LatticeAgreement::async_SendMessages() {
       std::string targetId = typeAndTarget.substr(5); // Skips the `send ` part
       std::string message;
       std::getline(ss, message);
+
+      if (batchBuilderMap[targetId].length() + message.length() + 1000 >= BUFFER_SIZE) {
+        break;
+      }
 
       if (currentBatchSize[targetId] == 8) {
         // Remove the last comma

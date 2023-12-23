@@ -15,7 +15,7 @@
 
 #define DELTA_RUNS 8
 
-#define DEBUG 1
+#define DEBUG 0
 template <class T>
 void debug(T msg) {
 
@@ -40,8 +40,8 @@ void debug(T msg) {
  bool comparePairs(const std::pair<int, std::string> &a, const std::pair<int, std::string> &b);
 
  // Constructor
-Process::Process(std::string myPort, int p, unsigned long max_unique_vals, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer) :
-        processId(processId), idToIPAndPort(idToIPAndPort), myPort(myPort), n_proposals(p), max_unique_vals(max_unique_vals), configPath(configPath), logsPath(logsPath) {
+Process::Process(std::string myPort, int p, unsigned long max_unique_vals, unsigned long max_vals_per_proposal, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer) :
+        processId(processId), idToIPAndPort(idToIPAndPort), myPort(myPort), n_proposals(p), max_unique_vals(max_unique_vals), max_vals_per_proposal(max_vals_per_proposal), configPath(configPath), logsPath(logsPath) {
 
     logsBufferPtr = logsBuffer;
     round = 0;
@@ -95,6 +95,12 @@ void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreemen
 
       unsigned int n_msgs = 0;
       for (int j = 0; j < 8; j++) {
+        // Each number occupies a maximum of 10 characters (MAXINT has 10 chars).
+        // `max_vals_per_proposal` is added for the `,`s used to separate the numbers
+        // 1000 is just a leeway, just in case
+        if (batch.length() + max_vals_per_proposal*10 + max_vals_per_proposal + 1000 >= BUFFER_SIZE) {
+          break;
+        }
         if (std::getline(file, line)) {
           batch += line + ";";
           n_msgs++;
