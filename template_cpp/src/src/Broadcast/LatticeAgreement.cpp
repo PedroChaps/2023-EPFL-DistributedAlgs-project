@@ -34,7 +34,7 @@ void debug(T msg) {
   }
 }
 
-#define MSGS_TO_BUFFER 35
+#define MSGS_TO_BUFFER 280
 
 LatticeAgreement::LatticeAgreement(
         std::string id,
@@ -200,7 +200,7 @@ void LatticeAgreement::receiver_processProposal(std::string runId_str, std::stri
     std::set<int> unionSet;
     std::set_union(acceptedSet[runId].begin(), acceptedSet[runId].end(), proposedSet.begin(), proposedSet.end(), std::inserter(unionSet, unionSet.begin()));
     acceptedSet[runId] = unionSet;
-    debug("[LatticeAgreement] (receiver) Sending NACK with proposed set (union of mine with the received one): ");
+    debug("[LatticeAgreement] (receiver) Putting in the queue a NACK with proposed set (union of mine with the received one): ");
     if (DEBUG) std::cout << setToString(unionSet) << std::endl;
     enqueueToSend(processId, runId_str + " n " + id + " " + proposalNumber_str + " " + setToString(unionSet));
   }
@@ -351,7 +351,12 @@ void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
 void LatticeAgreement::async_SendMessages() {
 
   // creates a copy vector so the original vectors can be unlocked
-  std::vector<std::string> messagesToShareCopy;
+  std::vector<std::string> updatedProposalsToBroadcast_copy;
+  std::vector<std::string> newMsgsToBroadcast_copy;
+  std::vector<std::string> ackNackMessagesToSend_copy;
+
+  std::vector<std::string> batchesToBroadcast;
+  std::unordered_map<std::string, std::vector<std::string>> batchesToSend;
 
   while (1) {
 
@@ -360,68 +365,135 @@ void LatticeAgreement::async_SendMessages() {
     {
       std::unique_lock<std::mutex> lock1(ackNackMessagesToSendMtx);
       std::unique_lock<std::mutex> lock2(newMsgsToBroadcastMtx);
+      std::unique_lock<std::mutex> lock3(updatedProposalsToBroadcastMtx);
 
       // Gets up until `msgsToBuffer` from the vector `ackNackMessagesToSend`, as it has more priority, and then gets the rest from `newMessagesToBroadcast`
       int i = 0;
       while (i < MSGS_TO_BUFFER and not ackNackMessagesToSend.empty()) {
-        messagesToShareCopy.push_back(ackNackMessagesToSend.front());
+        ackNackMessagesToSend_copy.push_back(ackNackMessagesToSend.front());
         ackNackMessagesToSend.pop_front();
         i++;
       }
+      while (i < MSGS_TO_BUFFER and not updatedProposalsToBroadcast.empty()) {
+        updatedProposalsToBroadcast_copy.push_back(updatedProposalsToBroadcast.front());
+        updatedProposalsToBroadcast.pop_front();
+        i++;
+      }
       while (i < MSGS_TO_BUFFER and not newMessagesToBroadcast.empty()) {
-        messagesToShareCopy.push_back(newMessagesToBroadcast.front());
+        newMsgsToBroadcast_copy.push_back(newMessagesToBroadcast.front());
         newMessagesToBroadcast.pop_front();
         i++;
       }
-//      if (ackNackMessagesToSend.size() > 0) {
-//        if (DEBUG) std::cout << "The vector of ACK/NACK msgs to send looks like: " << std::endl;
-//        for (auto compositeMsg: ackNackMessagesToSend) {
-//          if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
-//        }
-//        if (DEBUG) std::cout << std::endl;
-//      }
-//      if (newMessagesToBroadcast.size() > 0) {
-//        if (DEBUG) std::cout << "The vector of newMessagesToBroadcast to send looks like: " << std::endl;
-//        for (auto compositeMsg: newMessagesToBroadcast) {
-//          if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
-//        }
-//        if (DEBUG) std::cout << std::endl;
-//      }
+      //      if (ackNackMessagesToSend.size() > 0) {
+      //        if (DEBUG) std::cout << "The vector of ACK/NACK msgs to send looks like: " << std::endl;
+      //        for (auto compositeMsg: ackNackMessagesToSend) {
+      //          if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
+      //        }
+      //        if (DEBUG) std::cout << std::endl;
+      //      }
+      //      if (newMessagesToBroadcast.size() > 0) {
+      //        if (DEBUG) std::cout << "The vector of newMessagesToBroadcast to send looks like: " << std::endl;
+      //        for (auto compositeMsg: newMessagesToBroadcast) {
+      //          if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
+      //        }
+      //        if (DEBUG) std::cout << std::endl;
+      //      }
     }
+
     // debug("[LatticeAgreement] (sender) Locked the Mutex, unlocked it and have a copy of some messages");
-//    if (messagesToShareCopy.size() > 0) {
-//      if (DEBUG) std::cout << "The vector of messages to be processed looks like: " << std::endl;
-//      for (auto compositeMsg: messagesToShareCopy) {
-//        if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
-//      }
-//      if (DEBUG) std::cout << std::endl;
-//    }
-    // Sends the messages
-    for (auto compositeMsg : messagesToShareCopy) {
-      // The message is of the form `send <target_id>|<message>` or `broadcast|<message>`
-      std::stringstream ss(compositeMsg);
-      std::string type;
-      std::getline(ss, type, '|');
-      if (type == "broadcast") {
-        // Of the form `broadcast|<batch>`
-        std::string batch;
-        std::getline(ss, batch);
-        if (DEBUG) std::cout << "[LatticeAgreement] (sender) Broadcasting `" + batch + "`" << std::endl;
-        doBebBroadcast(batch);
+    //    if (messagesToShareCopy.size() > 0) {
+    //      if (DEBUG) std::cout << "The vector of messages to be processed looks like: " << std::endl;
+    //      for (auto compositeMsg: messagesToShareCopy) {
+    //        if (DEBUG) std::cout << "`" + compositeMsg + "`, " << std::endl;
+    //      }
+    //      if (DEBUG) std::cout << std::endl;
+    //    }
+
+    // Does some cool processing to transform individual messages to messages in batches of 8
+
+    // Groups the updated proposals broadcasts in batches of 8, separating each individual message with a `;`
+    std::string batchBuilder = "";
+    int i = 0;
+    for (auto msg : updatedProposalsToBroadcast_copy) {
+      if (i == 8) {
+        // Remove the last comma
+        batchBuilder.pop_back();
+        batchesToBroadcast.push_back(batchBuilder);
+        batchBuilder = "";
+        i = 0;
       }
-      else if (type.substr(0, 4) == "send") {
-        // Of the form `send <target_id>|<message>`
-        std::string targetId = type.substr(5);
-        std::string message;
-        std::getline(ss, message);
-        if (DEBUG) std::cout << "[LatticeAgreement] (sender) Sending `" + message + "` to `" + targetId + "`" << std::endl;
-        link.send(message, idToIpAndPort[targetId]);
+      batchBuilder += msg + ";";
+      i++;
+    }
+    if (batchBuilder != "") {
+      // Remove the last comma
+      batchBuilder.pop_back();
+      batchesToBroadcast.push_back(batchBuilder);
+    }
+
+
+    // Groups the sends in batches of 8, separating each individual message with a `;` and grouping them by target
+    std::unordered_map<std::string, std::string> batchBuilderMap;
+    std::unordered_map<std::string, int> currentBatchSize;
+    for (auto msg : ackNackMessagesToSend_copy) {
+      std::stringstream ss(msg);
+      std::string typeAndTarget;
+      std::getline(ss, typeAndTarget, '|');
+
+      if (typeAndTarget.substr(0, 4) != "send") {
+        std::cout << "SOMETHING IS VERY WRONG" << std::endl;
+        exit(1);
       }
-      else {
-        debug("[LatticeAgreement] (sender) Received a broken message with an invalid type: " + type);
+
+      std::string targetId = typeAndTarget.substr(5); // Skips the `send ` part
+      std::string message;
+      std::getline(ss, message);
+
+      if (currentBatchSize[targetId] == 8) {
+        // Remove the last comma
+        batchBuilderMap[targetId].pop_back();
+        batchesToSend[targetId].push_back(batchBuilderMap[targetId]);
+        batchBuilderMap[targetId] = "";
+        currentBatchSize[targetId] = 0;
+      }
+
+      batchBuilderMap[targetId] += message + ";";
+      currentBatchSize[targetId]++;
+    }
+    for (auto targetAndBatch : batchBuilderMap) {
+      if (targetAndBatch.second != "") {
+        // Remove the last comma
+        targetAndBatch.second.pop_back();
+        batchesToSend[targetAndBatch.first].push_back(targetAndBatch.second);
       }
     }
-    messagesToShareCopy.clear();
+
+
+    // Sends the messages, first the single-target and then the proposals
+    for (auto targetAndBatches : batchesToSend) {
+      for (auto batch : targetAndBatches.second) {
+        if (DEBUG) std::cout << "[LatticeAgreement] (sender) Sending a batch of messages to target " + targetAndBatches.first + ": " + batch << std::endl;
+        link.send(batch, idToIpAndPort[targetAndBatches.first]);
+      }
+    }
+
+    for (auto batch : batchesToBroadcast) {
+      if (DEBUG) std::cout << "[LatticeAgreement] (sender) Broadcasting a batch of messages (updated proposal): " + batch << std::endl;
+      doBebBroadcast(batch);
+    }
+
+    // These already come in batches of 8, so just broadcast them
+    for (auto batch : newMsgsToBroadcast_copy) {
+      if (DEBUG) std::cout << "[LatticeAgreement] (sender) Broadcasting a batch of messages (new): " + batch << std::endl;
+      doBebBroadcast(batch);
+    }
+
+    updatedProposalsToBroadcast_copy.clear();
+    ackNackMessagesToSend_copy.clear();
+    newMsgsToBroadcast_copy.clear();
+
+    batchesToBroadcast.clear();
+    batchesToSend.clear();
   }
 
 }
@@ -526,8 +598,8 @@ void LatticeAgreement::enqueueToBroadcast(std::string msg) {
 
   // Locks the mutex for the vector
   {
-    std::unique_lock<std::mutex> lock(ackNackMessagesToSendMtx);
-    ackNackMessagesToSend.push_back("broadcast|" + msg);
+    std::unique_lock<std::mutex> lock(updatedProposalsToBroadcastMtx);
+    updatedProposalsToBroadcast.push_back(msg);
   }
 }
 
@@ -555,7 +627,7 @@ void LatticeAgreement::enqueueNewMessagesToBroadcast(int runId, int finalRunId, 
     }
 
 
-    newMessagesToBroadcast.push_back("broadcast|" + msgsConcatenatedToBroadcast);
+    newMessagesToBroadcast.push_back(msgsConcatenatedToBroadcast);
   }
 }
 

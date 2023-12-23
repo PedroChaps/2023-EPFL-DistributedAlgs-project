@@ -103,7 +103,8 @@ class LatticeAgreement {
   std::mutex ackNackMessagesToSendMtx;
   std::deque<std::string> &newMessagesToBroadcast;
   std::mutex &newMsgsToBroadcastMtx;
-
+  std::deque<std::string> updatedProposalsToBroadcast;
+  std::mutex updatedProposalsToBroadcastMtx;
   /**
    * Best-effort broadcast.
    * Implemented in this class (instead of in an unique class) for simplicity.
