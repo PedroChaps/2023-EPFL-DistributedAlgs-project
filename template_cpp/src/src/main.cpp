@@ -173,6 +173,8 @@ int main(int argc, char **argv) {
   Parser parser(argc, argv);
   parser.parse();
 
+  // sleep(30);
+
   displayInitialInfo(parser);
 
   std::cout << "Doing some initialization...\n\n";

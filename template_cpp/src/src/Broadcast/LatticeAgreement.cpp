@@ -120,8 +120,8 @@ void LatticeAgreement::async_ReceiveMessages() {
     }
 
     debug("[LatticeAgreement] (receiver) Wtf man");
-    std::cout << "[LatticeAgreement] (receiver) Got the batch of messages: `" + batchOfMessages + "`" << std::endl;
-    debug("[LatticeAgreement] (receiver) Extracting stuff... Will be away from reading for a while");
+    if (DEBUG) std::cout << "[LatticeAgreement] (receiver) Got the batch of messages: `" + batchOfMessages + "`" << std::endl;
+    if (DEBUG) std::cout << "[LatticeAgreement] (receiver) Extracting stuff... Will be away from reading for a while" << std::endl;
 
     // A batch of messages, separated by `;` were received. So, iteratively process each one
     std::regex messagePattern(R"((\d+) ([pna]) (\d+) (\d+) ?,?([\d,]*)?;?)"); // Regular expression pattern
@@ -130,40 +130,48 @@ void LatticeAgreement::async_ReceiveMessages() {
     std::stringstream ss(batchOfMessages);
     std::string msg;
 
+    if (DEBUG) std::cout << "[LatticeAgreement] (receiver) Created the stringstream" << std::endl;
+
     // Each message is in the format: `<run_id> {p,a,n} <process_id> <round_id> (if {p,n}, <myProposedSet>)`
     // So, extract the run_id and the type of message
     while (std::getline(ss, msg, ';')) {
       if (std::regex_match(msg, match, messagePattern)) {
+        if (DEBUG) std::cout << "[LatticeAgreement] (receiver) Looking at one match" << std::endl;
         std::string runId = match[1];
+        if (DEBUG) std::cout << "[LatticeAgreement] (receiver) RunId" << runId << std::endl;
         std::string type = match[2];
+        if (DEBUG) std::cout << "[LatticeAgreement] (receiver) type" << type << std::endl;
         std::string p_i = match[3];
+        if (DEBUG) std::cout << "[LatticeAgreement] (receiver) p_i" << p_i << std::endl;
         std::string round_id = match[4];
+        if (DEBUG) std::cout << "[LatticeAgreement] (receiver) round_id" << round_id << std::endl;
         std::string proposed_set = match[5];
-        debug("[LatticeAgreement] (receiver) Extracted the following - run_id: " + runId + ", type: " + type +
-              ", p_i: " + p_i + ", round_id: " + round_id + ", myProposedSet: " + proposed_set);
+        if (DEBUG) std::cout << "[LatticeAgreement] (receiver) Extracted the following - run_id: " + runId + ", type: " + type +
+              ", p_i: " + p_i + ", round_id: " + round_id + ", myProposedSet: " + proposed_set << std::endl;
 
         if (type == "p") {
           // Acceptor role
-          debug("[LatticeAgreement] Processing a proposal...");
+          if (DEBUG) std::cout << "[LatticeAgreement] Processing a proposal..." << std::endl;
           receiver_processProposal(runId, p_i, round_id, proposed_set);
         }
         else if (type == "a" or type == "n") {
           if (type == "a") {
-            debug("[LatticeAgreement] Processing an ACK...");
+            if (DEBUG) std::cout << "[LatticeAgreement] Processing an ACK..." << std::endl;
             receiver_processAck(runId, p_i, round_id);
           }
           else if (type == "n") {
-            debug("[LatticeAgreement] Processing a NACK...");
+            if (DEBUG) std::cout << "[LatticeAgreement] Processing a NACK..." << std::endl;
             receiver_processNack(runId, p_i, round_id, proposed_set);
           }
-          debug("[LatticeAgreement] Processed the ACK/NACK. Now I will do the ACK/NACK checks");
+          if (DEBUG) std::cout << "[LatticeAgreement] Processed the ACK/NACK. Now I will do the ACK/NACK checks" << std::endl;
           receiver_doNacksAndAcksChecks(runId);
-          debug("[LatticeAgreement] Now I will do the ACK/NACK checks are now complete!");
+          if (DEBUG) std::cout << "[LatticeAgreement] The ACK/NACK checks are now complete!" << std::endl;
         }
         else {
           debug("[LatticeAgreement] (receiver) Received a broken message with an invalid type: " + type);
         }
       }
+      if (DEBUG) std::cout << "[LatticeAgreement] (receiver) Finished iterating over the messages of the batch" << std::endl;
     }
   }
 }
@@ -202,20 +210,22 @@ void LatticeAgreement::receiver_processProposal(std::string runId_str, std::stri
 
 void LatticeAgreement::receiver_processAck(std::string runId_str, std::string processId, std::string proposalNumber_str) {
 
-  debug("[LatticeAgreement] Converting runId and proposal number");
+  debug("[LatticeAgreement] Converting mostRecentRunId and proposal number");
   auto runId = stoul(runId_str);
   auto proposalNumber = stoi(proposalNumber_str);
 
   // I think this optimizes the code. If I'm not active, it's because I either haven't started or have finished already, so no need to do stuff in this situation.
 //  {
-//    std::unique_lock<std::mutex> lock(*activeMtx[runId]);
-//    if (not active[runId]) {
+//    std::unique_lock<std::mutex> lock(*activeMtx[mostRecentRunId]);
+//    if (not active[mostRecentRunId]) {
 //      debug("[LatticeAgreement] (receiver) Received a ACK from a run that is not active anymore, ignoring...");
 //      return;
 //    }
 //  }
 
   debug("[LatticeAgreement] Checking if proposal number is the active one");
+  if (DEBUG) std::cout << "proposalNumber: " << proposalNumber << std::endl;
+  if (DEBUG) std::cout << "activeProposalNumber[runId]: " << activeProposalNumber[runId] << std::endl;
   if (proposalNumber != activeProposalNumber[runId]) {
     debug("[LatticeAgreement] (receiver) Received an ACK from a round that has passed, ignoring...");
     return;
@@ -233,8 +243,8 @@ void LatticeAgreement::receiver_processNack(std::string runId_str, std::string p
   auto proposedSet = stringToSet(proposedSet_str);
 
 //  {
-//    std::unique_lock<std::mutex> lock(*activeMtx[runId]);
-//    if (not active[runId]) {
+//    std::unique_lock<std::mutex> lock(*activeMtx[mostRecentRunId]);
+//    if (not active[mostRecentRunId]) {
 //      debug("[LatticeAgreement] (receiver) Received a NACK from a run that is not active anymore, ignoring...");
 //      return;
 //    }
@@ -280,7 +290,7 @@ void LatticeAgreement::receiver_processNack(std::string runId_str, std::string p
 
 void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
 
-  debug("[LatticeAgreement] Converting runId to unsigned long");
+  debug("[LatticeAgreement] Converting mostRecentRunId to unsigned long");
   auto runId = stoul(runId_str);
 
   {
@@ -306,6 +316,10 @@ void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
   }
 
   debug("[LatticeAgreement] Doing the `upon` checks of lines 24-26 of pseudocode");
+  if (DEBUG) std::cout << "ackCount[runId]: " << ackCount[runId] << std::endl;
+  if (DEBUG) std::cout << "f+1: " << f+1 << std::endl;
+  if (DEBUG) std::cout << "alreadyDelivered[runId]: " << alreadyDelivered[runId] << std::endl;
+
   if (static_cast<size_t>(ackCount[runId]) >= static_cast<size_t>(f+1) and not alreadyDelivered[runId]) {
 
     alreadyDelivered[runId] = true;
@@ -324,50 +338,6 @@ void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
     }
   }
 }
-/*
-      std::string p_i = idAndMessage.substr(0, idAndMessage.find(','));
-      std::string p_j = idAndMessage.substr(idAndMessage.find(',') + 1, idAndMessage.find(',', idAndMessage.find(',') + 1) - idAndMessage.find(',') - 1);
-      std::string message = idAndMessage.substr(idAndMessage.find(',', idAndMessage.find(',') + 1) + 1);
-
-      debug("[LatticeAgreement] (receiver) Received message: `" + message + "` from process `" + p_i + "` that originated from process `" + p_j + "`");
-
-
-      acked_msgs[message].insert(p_i);
-
-      std::string p_jAndMessage = p_j + "," + message;
-
-      // Checks if the message was not forwarded already. If not, it's a new message, so it needs to be forwarded.
-      if (forwarded.find(p_jAndMessage) == forwarded.end()) {
-        debug("[LatticeAgreement] (receiver) Message was not forwarded yet, forwarding...");
-        forwarded.insert(p_jAndMessage);
-        doBebBroadcast(message);
-      } else {
-        debug("[LatticeAgreement] (receiver) Message was already forwarded!");
-      }
-
-      // Checks if the message can be delivered by checking if a majority has ACKed
-      if (acked_msgs[message].size() >= idToIpAndPort.size()/2 + 1 and delivered.find(message) == delivered.end()) {
-        debug("[LatticeAgreement] (receiver) Message can be delivered, delivering...");
-
-        // Adds the message to the delivered set
-        delivered.insert(message);
-
-        // Delivers the message
-        {
-          debug("[Process] Waiting for the Mutex for the shared Vector");
-          std::unique_lock<std::mutex> lock(sharedMsgsToDeliverMtx);
-          debug("[Process] Locked the Mutex for the shared Vector");
-          sharedMsgsToDeliver.push_back(message);
-          debug("[LatticeAgreement] (receiver) Message delivered (ie. appended to the vector): `" + message + "`");
-        }
-        debug("[Process] Unlocked the Mutex for the shared Vector");
-      } else {
-        debug("[LatticeAgreement] (receiver) Message `" + message +  "` can't be delivered yet, as acked_msgs.size() = " + std::to_string(acked_msgs[message].size()) + ", and idToIpAndPort.size() = " + std::to_string(idToIpAndPort.size()) + " and delivered.find(message) == delivered.end() is " + std::to_string(static_cast<int>(delivered.find(message) == delivered.end())));
-      }
-
-
-     */
-
 
 // ----------------------------------------------------------------------------------------------
 // Code for the sending of messages
@@ -433,18 +403,18 @@ void LatticeAgreement::async_SendMessages() {
       std::string type;
       std::getline(ss, type, '|');
       if (type == "broadcast") {
-        // Of the form `broadcast|<message>`
-        std::string message;
-        std::getline(ss, message);
-        debug("[LatticeAgreement] (sender) Broadcasting `" + message + "`");
-        doBebBroadcast(message);
+        // Of the form `broadcast|<batch>`
+        std::string batch;
+        std::getline(ss, batch);
+        if (DEBUG) std::cout << "[LatticeAgreement] (sender) Broadcasting `" + batch + "`" << std::endl;
+        doBebBroadcast(batch);
       }
       else if (type.substr(0, 4) == "send") {
         // Of the form `send <target_id>|<message>`
         std::string targetId = type.substr(5);
         std::string message;
         std::getline(ss, message);
-        debug("[LatticeAgreement] (sender) Sending `" + message + "` to `" + targetId + "`");
+        if (DEBUG) std::cout << "[LatticeAgreement] (sender) Sending `" + message + "` to `" + targetId + "`" << std::endl;
         link.send(message, idToIpAndPort[targetId]);
       }
       else {
@@ -512,45 +482,33 @@ std::set<int> LatticeAgreement::stringToSet(const std::string& str) {
 }
 
 
-void LatticeAgreement::startRun(int runId, std::string proposedSet_str) {
+void LatticeAgreement::startRun(int n_msgs, std::string batchOfSets) {
 
-  debug("[LatticeAgreement] (sender) Starting run with id `" + std::to_string(runId) + "` and proposedSet `" + proposedSet_str + "`");
+  debug("[LatticeAgreement] (sender) Starting run with id `" + std::to_string(mostRecentRunId) + "` and batch of sets `" + batchOfSets + "`");
 
-  std::set<int> proposedSet = stringToSet(proposedSet_str);
-  auto runId_ul = static_cast<unsigned long>(runId);
+  // For each set_str in the batchOfSets, does the following
+  // The separator is `;`
+  std::stringstream ss(batchOfSets);
+  std::string set_str;
+  auto initialRunId = mostRecentRunId;
+  while (std::getline(ss, set_str, ';')) {
+    debug("[LatticeAgreement] (sender) Initializing stuff regarding set: `" + set_str + "`");
 
-  {
-    std::unique_lock<std::mutex> lock(*activeMtx[runId_ul]);
-    myProposedSet[runId_ul] = proposedSet;
-    active[runId_ul] = true;
-    activeProposalNumber[runId_ul]++;
-    ackCount[runId_ul] = 0;
-    nackCount[runId_ul] = 0;
-  }
+    std::set<int> proposedSet = stringToSet(set_str);
+    auto runId_ul = static_cast<unsigned long>(initialRunId);
 
-  // Convert the input set to the used format (ie. from `<nr1> <nr2> ... <nrN>` to `<nr1>,<nr2>,...,<nrN>`)
-  std::string proposedSet_str2 = setToString(proposedSet);
-
-  if (proposedSet.size() == max_unique_vals and not alreadyDelivered[runId_ul]) {
-    alreadyDelivered[runId_ul] = true;
-    debug("[LatticeAgreement] (sender) Shortcut! The proposed set is already the maximum size, so I will enqueue it to be delivered");
-    active[runId_ul] = false;
     {
-      std::unique_lock<std::mutex> lock(sharedMsgsToDeliverMtx);
-      debug("[LatticeAgreement] Locked the mutex. Now I will append the accepted set to the shared vector. Appended message:");
-      auto set_str = setToStringDeliveryFormat(myProposedSet[runId_ul]);
-      auto runId_str = std::to_string(runId_ul);
-
-      debug("[LatticeAgreement] Enqueuing the following:");
-      if (DEBUG) std::cout << runId_str + ":" + set_str << std::endl;
-
-      sharedMsgsToDeliver.push_back(runId_str + ":" + set_str);
+      std::unique_lock<std::mutex> lock(*activeMtx[runId_ul]);
+      myProposedSet[runId_ul] = proposedSet;
+      active[runId_ul] = true;
+      activeProposalNumber[runId_ul]++;
+      ackCount[runId_ul] = 0;
+      nackCount[runId_ul] = 0;
     }
-    return;
+    initialRunId++;
   }
-
-  // Generate the broadcast message and save it in the newMessages
-  enqueueNewMessagesToBroadcast(runId, proposedSet_str2);
+  enqueueNewMessagesToBroadcast(mostRecentRunId, mostRecentRunId+n_msgs, batchOfSets);
+  mostRecentRunId += n_msgs;
 }
 
 
@@ -574,12 +532,30 @@ void LatticeAgreement::enqueueToBroadcast(std::string msg) {
 }
 
 
-void LatticeAgreement::enqueueNewMessagesToBroadcast(int runId, std::string proposedSet_str) {
+void LatticeAgreement::enqueueNewMessagesToBroadcast(int runId, int finalRunId, std::string batchOfSets) {
+
+  // Converts the batch of sets into a vector of messages to broadcast (so it can be accessed with it's index)
+  // The separator is `;`
+  std::stringstream ss(batchOfSets);
+  std::string set_str;
+  std::vector<std::string> individualSets;
+  while (std::getline(ss, set_str, ';')) {
+    individualSets.push_back(set_str);
+  }
 
   // Locks the mutex for the vector
   {
+    unsigned long idx = 0;
     std::unique_lock<std::mutex> lock(newMsgsToBroadcastMtx);
-    newMessagesToBroadcast.push_back("broadcast|" + std::to_string(runId) + " p " + id + " 1 " + proposedSet_str);
+    std::string msgsConcatenatedToBroadcast = "";
+
+    for (int i = runId; i < finalRunId; i++) {
+      msgsConcatenatedToBroadcast += std::to_string(i) + " p " + id + " 1 " + individualSets[idx] + ";";
+      idx++;
+    }
+
+
+    newMessagesToBroadcast.push_back("broadcast|" + msgsConcatenatedToBroadcast);
   }
 }
 

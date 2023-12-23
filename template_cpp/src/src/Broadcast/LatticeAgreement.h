@@ -48,7 +48,7 @@ class LatticeAgreement {
    * The number of active runs.
    * Helpful for not having too many active runs at the same time.
    */
-  int activeRuns = 0;
+  int mostRecentRunId = 0;
 
   /**
    * The id of this process.
@@ -83,7 +83,7 @@ class LatticeAgreement {
   /**
    * The vector that will be shared with the main thread to periodically write
    *  messages to be delivered.
-   * Messages will be of the form `<runId> <nr1>,<nr2>,...,<nrN>` (the run id is
+   * Messages will be of the form `<mostRecentRunId> <nr1>,<nr2>,...,<nrN>` (the run id is
    *  necessary to order the deliveries).
    */
   std::vector<std::string> &sharedMsgsToDeliver;
@@ -220,14 +220,14 @@ public:
    * Sends a proposal.
    * @param proposed_set the set of values to propose.
    */
-  void startRun(int runId, std::string proposedSet_str);
+  void startRun(int n_msgs, std::string batchOfSets);
 
   /**
    * Puts a message in the buffer to be broadcasted (so it can be sent in batches of 8).
    * It has the form `broadcast|<msg>`.
    * @param msg the message to broadcast.
    */
-  void enqueueNewMessagesToBroadcast(int runId, std::string proposedSet_str);
+  void enqueueNewMessagesToBroadcast(int runId, int finalRunId, std::string batchOfSets);
 };
 
 

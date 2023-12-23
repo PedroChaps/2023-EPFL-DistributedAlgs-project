@@ -11,6 +11,7 @@
 #include <ctime>
 #include <algorithm>
 #include <unistd.h>
+#include <regex>
 
 #define DELTA_RUNS 8
 
@@ -36,9 +37,9 @@ void debug(T msg) {
 }
 
 
-bool comparePairs(const std::pair<int, std::string> &a, const std::pair<int, std::string> &b);
+ bool comparePairs(const std::pair<int, std::string> &a, const std::pair<int, std::string> &b);
 
-// Constructor
+ // Constructor
 Process::Process(std::string myPort, int p, unsigned long max_unique_vals, int nHosts, int processId, std::unordered_map<std::string,std::string> idToIPAndPort, std::string configPath, std::string logsPath, std::stringstream *logsBuffer) :
         processId(processId), idToIPAndPort(idToIPAndPort), myPort(myPort), n_proposals(p), max_unique_vals(max_unique_vals), configPath(configPath), logsPath(logsPath) {
 
@@ -86,18 +87,35 @@ void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreemen
       std::unique_lock<std::mutex> lock(bufferMtx);
       bufferCv.wait(lock, [this, i, lastBroadcastedRun] {
         // Waits for a maximum delta of DELTA_RUNS runs (ie. only DELTA_RUNS runs can be in-flight at the same time)
-        return i <= n_proposals and lastBroadcastedRun - lastDeliveredRun <= DELTA_RUNS;
+        return i <= n_proposals and lastBroadcastedRun - lastDeliveredRun < DELTA_RUNS;
       });
-
+      debug("[Process] (sender) Passed the CV");
       // Reads the next line
-      std::getline(file, line);
-      if (line.empty()) {
-        // If the line is empty, it means we reached the end of the file
+      std::string batch;
+
+      unsigned int n_msgs = 0;
+      for (int j = 0; j < 8; j++) {
+        if (std::getline(file, line)) {
+          batch += line + ";";
+          n_msgs++;
+        } else if (line.empty()){
+          break;
+        }
+      }
+
+      // Case where the file became empty on the last run
+      if (n_msgs == 0) {
         break;
       }
 
-      debug("[Process] (sender) Starting run " + std::to_string(i) + " with input set `" + line + "`");
-      latticeAgreement.startRun(i, line);
+      // Convert the batch from `nr1 nr2 ... nrN;nr1 nr2 ... nrN;...` to `nr1,nr2,...,nrN;nr1,nr2,...,nrN`
+      std::regex regex(" ");
+      batch = std::regex_replace(batch, regex, ",");
+      if (DEBUG) std::cout << "[Process] (sender) Created the batch: `" + batch + "`" << std::endl;
+      if (DEBUG) std::cout << "[Process] (sender) Starting runs " + std::to_string(i) + " to " + std::to_string(
+                static_cast<unsigned int>(i) + n_msgs) + " with input set `" + batch + "`" << std::endl;
+
+      latticeAgreement.startRun(static_cast<int>(n_msgs), batch);
 
       // Periodically saves the logs
       if (i % 240 == 0) {
@@ -106,155 +124,13 @@ void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreemen
           saveLogs();
         }
       }
-      i++;
-      lastBroadcastedRun++;
+      i+=n_msgs;
+      lastBroadcastedRun+=n_msgs;
     }
   }
 
   debug("[Process] (sender) Done sending messages! I can relax :D");
 }
-
-
-//void Process::doFIFO() {
-//
-//  std::vector<std::string> sharedVector;
-//  std::mutex sharedVectorMtx;
-//
-//  UniformBroadcast uniformBroadcast(std::to_string(processId), idToIPAndPort, myPort, sharedVector, sharedVectorMtx);
-//
-//  std::thread tSenderThread(&Process::async_enqueueMessagesToBroadcast, this, std::ref(uniformBroadcast));
-//
-//  // Logs the sent messages
-//  saveLogs();
-//
-//  // Creates an ugly data structure to store the messages while they are not in order.
-//  // I hope the following explanation is good, otherwise I am sorry if you are trying to understand it and cant :(
-//  /**
-//
-//    Creates a structure which purpose is to store the messages while they cannot be delivered in order (eg. some prior messages are still in-flight because of delays).
-//    It maps the id of the sender to a list of not-yet-delivered messages.
-//    Some additional information is also stored, such as the next "sequence number" to deliver and the first "sequence number" of each message, to make the algorithm simpler.
-//    The set is used to keep the messages sorted by the first "sequence number" of each message. To do this, it uses a custom comparator, which compares the first entry of the saved pairs.
-//
-//    The structure is of the form:
-//    ```
-//    {
-//      <id1>: (<nextMsgToDeliver1>, { (<firstElement1>, <msg1>), (<firstElement2>, <msg2>), ... } ),
-//      <id2>: (<nextMsgToDeliver1>, { (<firstElement1>, <msg1>), (<firstElement2>, <msg2>), ... } ),
-//        ...
-//    }
-//   ```
-//
-//   An example is the following:
-//   ```
-//   {
-//      "1": (9, { (17, "17 18 19 20 21 22 23 24"), (25, "25 26 27 28 29 30 31 32") } ),
-//      "2": (17, { (25, "25 26 27 28 29 30 31 32") } ),
-//      "3": (1, { } ),
-//    }
-//   ```
-//   */
-//
-//  // Comparator used to sort the messages by the first element of the pair
-//  struct custom_compare {
-//    // Returns true if a < b
-//    bool operator() (const std::pair<int, std::string> &a, const std::pair<int, std::string> &b) const {
-//      return a.first < b.first;
-//    }
-//  };
-//
-//  std::unordered_map<
-//          std::string, std::pair<
-//                  int, std::set<
-//                          std::pair<int, std::string>,
-//                          custom_compare
-//                          >
-//                  >
-//  > messagesToDeliver;
-//
-//
-//  // Periodically consumes the delivered messages
-//  while (1) {
-//    // Local copy to avoid holding the lock for too long
-//    std::vector<std::string> localCopy;
-//    {
-//      // Acquire the lock before accessing the shared vector
-//      // debug("[Process] Waiting for the Mutex for the shared Vector");
-//      std::lock_guard<std::mutex> lock(sharedVectorMtx);
-//      // debug("[Process] Locked the Mutex for the shared Vector");
-//      localCopy = sharedVector;
-//      // Consume the entries
-//      sharedVector.clear();
-//    }
-//    // debug("[Process] Unlocked the Mutex for the shared Vector");
-//
-//    // Process the local copy of the shared vector
-//    for (const std::string& message : localCopy) {
-//
-//      debug("[Receiver] About to process a new batch of " + std::to_string(localCopy.size()) + " messages...");
-//
-//      // Split the message. It's of the form "<id> <msg1> <msg2> ... <msg8>"
-//      std::string id = message.substr(0, message.find(' '));
-//      std::string msgs = message.substr(message.find(' ') + 1);
-//      int firstMsg = stoi(msgs.substr(0, msgs.find(' ')));
-//
-//      // Checks if id exists in the map. If not, creates it.
-//      if (messagesToDeliver.find(id) == messagesToDeliver.end()) {
-//        messagesToDeliver[id] = std::make_pair(1, std::set<std::pair<int, std::string>, custom_compare>(custom_compare{}));
-//      }
-//
-//      // Adds the message to the set (since it's sorted, it will be in the correct position for the next step)
-//      messagesToDeliver[id].second.insert(std::make_pair(firstMsg, msgs));
-//
-//      // Iteratevely goes over the messages and delivers everything it can
-//      auto firstPair = (messagesToDeliver[id].second.begin());
-//      while (messagesToDeliver[id].first == firstPair->first) {
-//        // If the message can be delivered:
-//        // - Delivers it
-//        // - Increases the next expected sequence number to deliver
-//        // - Erases the message from the set
-//        // - Updates the firstPair to the newer first element
-//
-//        round = std::max(round, firstPair->first / 8 + 1);
-//        debug("[Receiver] Round: " + std::to_string(round));
-//
-//        messagesToDeliver[id].first += 8;
-//
-//        std::string sequenceNumber;
-//        std::string sequenceNumbers = messagesToDeliver[id].second.begin()->second;
-//
-//        // std::cout << "About to deliver: `" << sequenceNumbers << "` from process " << id << std::endl;
-//
-//        debug("[Receiver] Doing processing...");
-//        {
-//          std::lock_guard<std::mutex> lock(bufferMtx);
-//          while (sequenceNumbers.find(' ') != std::string::npos) {
-//            sequenceNumber = sequenceNumbers.substr(0, sequenceNumbers.find(' '));
-//            sequenceNumbers = sequenceNumbers.substr(sequenceNumbers.find(' ') + 1);
-//
-//            // Appends to the log variable
-//            (*logsBufferPtr) << "d " << id << " " << sequenceNumber << std::endl;
-//          }
-//
-//          // Appends the final number
-//          (*logsBufferPtr) << "d " << id << " " << sequenceNumbers << std::endl;
-//        }
-//        // Every time something is delivered, notifies the other thread, so it can check if it can send more messages
-//        bufferCv.notify_all();
-//        debug("[Receiver] Done some processing. `*logsBufferPtr` now has some more content");
-//
-//        messagesToDeliver[id].second.erase(firstPair);
-//        firstPair = (messagesToDeliver[id].second.begin());
-//      }
-//
-//      // Checks if all messages have been delivered, by checking if the next number exceeds the limits
-//      if (messagesToDeliver[id].first > n_proposals) {
-//        // If so, deletes the entry from the map
-//        messagesToDeliver.erase(id);
-//      }
-//    }
-//  }
-//}
 
 
 bool comparePairs(const std::pair<int, std::string> &a, const std::pair<int, std::string> &b) {
@@ -310,11 +186,11 @@ void Process::doLatticeAgreement() {
     for (const std::string& message : localCopy) {
       if (DEBUG) std::cout << "Processing message: `" << message << "`" << std::endl;
 
-      // Split the message. It's of the form "<runId>:<n1> <n2> ... <nN>"
+      // Split the message. It's of the form "<mostRecentRunId>:<n1> <n2> ... <nN>"
       std::string runId = message.substr(0, message.find(':'));
       std::string sequenceNumbers = message.substr(message.find(':') + 1);
 
-//      if (DEBUG) std::cout << "Run id: `" << runId << "`" << std::endl;
+//      if (DEBUG) std::cout << "Run id: `" << mostRecentRunId << "`" << std::endl;
 //      if (DEBUG) std::cout << "sequenceNumbers: `" << sequenceNumbers << "`" << std::endl;
 
       // Adds the message to the vector
@@ -334,7 +210,7 @@ void Process::doLatticeAgreement() {
 //    }
     while (!messagesToDeliver.empty() and messagesToDeliver[0].first == lastDeliveredRun + 1) {
       // If so, delivers the messages
-      if (DEBUG) std::cout << "Delivering the message `" << messagesToDeliver[0].second << "` with runId `" << std::to_string(messagesToDeliver[0].first) << "`" << std::endl;
+      if (DEBUG) std::cout << "Delivering the message `" << messagesToDeliver[0].second << "` with mostRecentRunId `" << std::to_string(messagesToDeliver[0].first) << "`" << std::endl;
 
       std::string sequenceNumbers = messagesToDeliver[0].second;
       {
