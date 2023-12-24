@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <regex>
 
-#define DELTA_RUNS 8
+#define DELTA_RUNS 16
 
 #define DEBUG 0
 template <class T>
@@ -47,7 +47,6 @@ Process::Process(std::string myPort, int p, unsigned long max_unique_vals, unsig
     round = 0;
 }
 
-// FIXME: just sending the messages one by one, without using the batches
 void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreement) {
 
   // This function will read the config file to get the proposed sets
@@ -63,20 +62,12 @@ void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreemen
   std::getline(file, line);
   line = "";
 
-//
-//     // TODO: remove (bcz it's read in Process)
-//     while (std::getline(file, line)) {
-//       values.inputSets.push_back(line);
-//     }
-//
-//     file.close();
-//
-
   std::vector<std::string> inputSets;
 
   // Creates and broadcasts all the messages
   debug("[Process] (sender) Creating and sending messages...");
   int i = 0;
+  int total_msgs = 0;
   int lastBroadcastedRun = -1;
 
   while (1) {
@@ -124,14 +115,16 @@ void Process::async_enqueueMessagesToBroadcast(LatticeAgreement &latticeAgreemen
       latticeAgreement.startRun(static_cast<int>(n_msgs), batch);
 
       // Periodically saves the logs
-      if (i % 240 == 0) {
+      if (total_msgs > 240) {
         {
           std::lock_guard<std::mutex> lock_logs(logsBufferMtx);
           saveLogs();
         }
+        total_msgs = 0;
       }
-      i+=n_msgs;
-      lastBroadcastedRun+=n_msgs;
+      i += n_msgs;
+      total_msgs += n_msgs;
+      lastBroadcastedRun += n_msgs;
     }
   }
 

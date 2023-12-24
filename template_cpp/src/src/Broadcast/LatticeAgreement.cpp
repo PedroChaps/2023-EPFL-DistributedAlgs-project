@@ -34,7 +34,7 @@ void debug(T msg) {
   }
 }
 
-#define MSGS_TO_BUFFER 280
+#define MSGS_TO_BUFFER 560
 
 LatticeAgreement::LatticeAgreement(
         std::string id,
@@ -346,8 +346,6 @@ void LatticeAgreement::receiver_doNacksAndAcksChecks(std::string runId_str) {
 
 // Reads from the vectors some messages (buffering them so the vectors and not constantly being locked/unlocked) and sends them
 // according to the type of message
-// FIXME: we don't use the batching of 8 messages because I didn't think of this well (they need to be sent to the same process)
-// FIXME: temporary solution just to have a baseline running
 void LatticeAgreement::async_SendMessages() {
 
   // creates a copy vector so the original vectors can be unlocked

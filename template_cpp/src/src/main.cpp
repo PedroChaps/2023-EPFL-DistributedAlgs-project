@@ -123,7 +123,7 @@ ConfigValues readConfigFile(std::string& configPath) {
       iss >> values.p >> values.vs >> values.ds;
     }
 
-    // TODO: remove (bcz it's read in Process)
+
     while (std::getline(file, line)) {
       values.inputSets.push_back(line);
     }
